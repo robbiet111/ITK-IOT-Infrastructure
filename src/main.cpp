@@ -6,6 +6,7 @@
 #include <SimpleCLI.h> // for instructions of use see https://github.com/spacehuhn/SimpleCLI
 #include <stdio.h>
 #include <EEPROM.h>
+#include "common_headers.h"
 
 // Number of bytes needed in ROM, max should be 512
 /**
@@ -34,15 +35,61 @@ Command dbip;
 Command ssid;
 Command pass;
 Command info;
+Command run;
 
-// Variables
+// Variables stored in ROM
 String influxdb_url; // Database IP address
 String wifi_ssid;
 String wifi_pass;
 
+// Setting up Adafruit MAX31865 module 
+#include <Adafruit_MAX31865.h>
+// Use software SPI: Adafruit_MAX31865(CS, DI, DO, CLK)
+// NodeMCU pins connected to: Adafruit_MAX31865(D0=GPIO16, D1=GPIO5, D2=GPIO4, D3=GPIO0)
+Adafruit_MAX31865 max_ada = Adafruit_MAX31865(33, 25, 26, 27);
+// The value of the Rref resistor. Use 430.0 for PT100 and 4300.0 for PT1000
+#define RREF 430.0
+// The 'nominal' 0-degrees-C resistance of the sensor
+// 100.0 for PT100, 1000.0 for PT1000
+#define RNOMINAL 100.0
+
+#define ESP32_HOST_NAME       "UNIT_11"
+
+#define TAG_UNIT_ID_NAME      "unit_id"
+#define TAG_UNIT_ID_VALUE     "11"
+
+#define TAG_INSTRUMENT_NAME   "instrument"
+#define TAG_INSTRUMENT_VALUE  "ttgo_esp32"
+
+#define TAG_LOCATION_NAME     "location"
+#define TAG_LOCATION_VALUE    "undefined_location"
+
+#define TAG_SENSOR_NAME       "sensor"
+#define TAG_SENSOR_VALUE      "MAX31865_PT100"
+
+#define TAG_CHANNEL_NAME      "channel"
+#define TAG_CHANNEL_VALUE     "0"
+
+#define FIELD_NAME_T          "temperature"
+
+bool ready_to_go = false;
+
+InfluxDBClient client;
+Point sensor("data");
+WiFiMulti WiFiMulti;
+TFT_eSPI tft = TFT_eSPI(135, 240); // Invoke custom library
+Button2 btn1(BUTTON_1);
+Button2 btn2(BUTTON_2);
+char buff[512];
+int vref = 1100;
+int btnCick = true;
+int db_counter = 0;
+byte rcvData;
+
 
 void writeStringToEEPROM(int address, const String &data);
 String readStringFromEEPROM(int addrOffset);
+void sensor_setup();
 
 void writeStringToEEPROM(int address, const String &data)
 {
@@ -130,6 +177,13 @@ void infoCallback(cmd* c) {
     Serial.print("\tDatabase url: "+influxdb_url+"\n");
 }
 
+void runCallback(cmd* c) {
+    Command cmd(c); // Create wrapper object
+    sensor_setup();
+    ready_to_go = true;
+    Serial.println("\nRunning...");
+}
+
 // Callback in case of an error
 void errorCallback(cmd_error* e) {
     CommandError cmdError(e); // Create wrapper object
@@ -142,6 +196,232 @@ void errorCallback(cmd_error* e) {
         Serial.print(cmdError.getCommand().toString());
         Serial.println("\"?");
     }
+}
+
+void MeasureDataMAX31865PT100() {
+	static uint64_t timeStamp = 0;
+	if (millis() - timeStamp > 1000) { // measure data every 1 seconds
+		timeStamp = millis();
+
+  uint16_t rtd = max_ada.readRTD();
+  //Serial.print("RTD value: "); Serial.println(rtd);
+  float ratio = rtd;
+  ratio /= 32768;
+  //Serial.print("Ratio = "); Serial.println(ratio,8);
+  //Serial.print("Resistance = "); Serial.println(RREF*ratio,8);
+  float myTemp = (RREF*ratio / 1250);
+  //Serial.print("Temperature = ");
+  float temperature = 0.0;
+  temperature = max_ada.temperature(RNOMINAL, RREF);
+  
+  // Check and print any faults
+  uint8_t fault = max_ada.readFault();
+  if (fault) {
+    Serial.print("Fault 0x"); Serial.println(fault, HEX);
+    if (fault & MAX31865_FAULT_HIGHTHRESH) {
+      Serial.println("RTD High Threshold"); 
+    }
+    if (fault & MAX31865_FAULT_LOWTHRESH) {
+      Serial.println("RTD Low Threshold"); 
+    }
+    if (fault & MAX31865_FAULT_REFINLOW) {
+      Serial.println("REFIN- > 0.85 x Bias"); 
+    }
+    if (fault & MAX31865_FAULT_REFINHIGH) {
+      Serial.println("REFIN- < 0.85 x Bias - FORCE- open"); 
+    }
+    if (fault & MAX31865_FAULT_RTDINLOW) {
+      Serial.println("RTDIN- < 0.85 x Bias - FORCE- open"); 
+    }
+    if (fault & MAX31865_FAULT_OVUV) {
+      Serial.println("Under/Over voltage"); 
+    }
+    max_ada.clearFault();
+  }
+		else {
+			Serial.print("Temperature: "); Serial.print(temperature); Serial.println("°C");
+			sensor.clearFields();
+			sensor.addField(FIELD_NAME_T, float(temperature));
+
+			tft.setTextSize(2);
+			tft.fillScreen(TFT_BLACK);
+			tft.setTextDatum(MC_DATUM);
+			tft.drawString(String("T: ") + String(temperature) + " *C", tft.width() / 2, tft.height() / 2);
+
+			db_counter++;
+			if (db_counter == 60) {
+				if (!client.writePoint(sensor)) {
+				  Serial.print("InfluxDB write failed: ");
+				  Serial.println(client.getLastErrorMessage());
+				  //Serial.println("Calling ESP hard reset...");
+				  //ESP.restart();
+				} else {
+				  Serial.println("InfluxDB write OK");
+				}
+				db_counter = 0;
+			}
+		}		
+	}	  
+}
+
+void button_init() {
+  btn1.setLongClickHandler([](Button2 & b) {
+    //Serial.println("Btn GPIO_35 setLongClickHandler");
+    btnCick = true;
+    unsigned int time = b.wasPressedFor();
+    Serial.print("You clicked ");
+    if (time > 1500) {
+      Serial.print("a really really long time.");
+    } else if (time > 1000) {
+      Serial.print("a really long time.");
+    } else if (time > 500) {
+      Serial.print("a long time.");
+    } else {
+      Serial.print("long.");
+    }
+    Serial.print(" (");
+    Serial.print(time);
+    Serial.println(" ms)");
+  });
+
+  btn1.setClickHandler([](Button2 & b) {
+    Serial.println("DEBUG :: Btn GPIO_35 setClickHandler");
+    btnCick = true;
+  });
+
+  btn1.setDoubleClickHandler([](Button2 & b) {
+    Serial.println("DEBUG :: Btn GPIO_35 setDoubleClickHandler");
+    btnCick = true;
+  });
+
+  btn1.setTripleClickHandler([](Button2 & b) {
+    Serial.println("DEBUG :: Btn GPIO_35 setTripleClickHandler");
+    btnCick = true;
+  });
+
+  btn2.setPressedHandler([](Button2 & b) {
+    Serial.println("DEBUG :: Btn GPIO_0 setPressedHandler");
+    btnCick = true;
+  });
+}
+
+void sensor_setup() {
+  max_ada.begin(MAX31865_2WIRE);  // set to 2WIRE or 4WIRE as necessary 
+  InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
+
+  rcvData = 255;
+
+  tft.init();
+  tft.setRotation(3);
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextSize(2);
+  tft.setTextColor(TFT_GREEN);
+  tft.setCursor(0, 0);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextSize(1);
+
+  if (TFT_BL > 0) {                           // TFT_BL has been set in the TFT_eSPI library in the User Setup file TTGO_T_Display.h
+    pinMode(TFT_BL, OUTPUT);                // Set backlight pin to output mode
+    digitalWrite(TFT_BL, TFT_BACKLIGHT_ON); // Turn backlight on. TFT_BACKLIGHT_ON has been set in the TFT_eSPI library in the User Setup file TTGO_T_Display.h
+  }
+
+  tft.setSwapBytes(true);
+  tft.pushImage(0, 0,  240, 135, UoG_DM_240x135);
+  delay(5000);
+
+  tft.setRotation(3);
+  tft.fillScreen(TFT_RED); delay(1000);
+  tft.fillScreen(TFT_BLUE); delay(1000);
+  tft.fillScreen(TFT_GREEN); delay(1000);
+
+  button_init();
+  
+  tft.fillScreen(TFT_BLACK);
+
+  WiFiMulti.addAP(wifi_ssid.c_str(), wifi_pass.c_str());
+
+  delay(200);
+  Serial.println("");
+  Serial.print("Connecting to WiFi: ");
+  Serial.println(wifi_ssid);
+
+  tft.setTextSize(2);
+  tft.setTextDatum(MC_DATUM);
+  tft.drawString("Connecting to WiFi", tft.width() / 2, tft.height() / 2 - 16);
+  tft.drawString(String(wifi_ssid), tft.width() / 2, tft.height() / 2 + 16);
+
+  int counter = 0;
+
+  while (WiFiMulti.run() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(100);
+    counter += 1;
+    if (counter == 50) {
+      tft.fillScreen(TFT_BLACK);
+      tft.setTextSize(2);
+      tft.setTextDatum(MC_DATUM);
+      tft.drawString("Rebooting TTGO ESP32", tft.width() / 2, tft.height() / 2);
+      delay(1000);
+      ESP.restart();
+    }
+  }
+
+  WiFi.setHostname(ESP32_HOST_NAME);
+  Serial.print("WiFi connected: "); Serial.println(WiFi.SSID());
+  Serial.print("Hostname: ");       Serial.println(WiFi.getHostname());
+  Serial.print("IP address: ");     Serial.println(WiFi.localIP()); char buf[16]; sprintf(buf, "%d.%d.%d.%d", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3] );
+  Serial.print("MAC address: ");    Serial.println(WiFi.macAddress());
+
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextSize(1);
+  tft.setTextDatum(MC_DATUM);
+  tft.drawString("WiFi connected: " + String(WiFi.SSID()), tft.width() / 2, tft.height() / 2 - 24);
+  tft.drawString("Hostname: " + String(WiFi.getHostname()), tft.width() / 2, tft.height() / 2 - 8);
+  tft.drawString("IP address: " + String(buf), tft.width() / 2, tft.height() / 2 + 8);
+  tft.drawString("MAC address: " + String(WiFi.macAddress()), tft.width() / 2, tft.height() / 2 + 24);
+  delay(5000);
+  tft.fillScreen(TFT_BLACK);
+
+  // Check server connection
+  if (client.validateConnection()) {
+    Serial.print("Connected to InfluxDB ");
+    Serial.println(client.getServerUrl());
+    Serial.println("All connections successful. Exiting setup.");
+    Serial.println("======= InfluxDB tags =======");
+    Serial.print(TAG_UNIT_ID_NAME);    Serial.print(": "); Serial.println(TAG_UNIT_ID_VALUE);
+    Serial.print(TAG_INSTRUMENT_NAME); Serial.print(": "); Serial.println(TAG_INSTRUMENT_VALUE);
+    Serial.print(TAG_LOCATION_NAME);   Serial.print(": "); Serial.println(TAG_LOCATION_VALUE);
+    Serial.print(TAG_SENSOR_NAME);     Serial.print(": "); Serial.println(TAG_SENSOR_VALUE);
+    Serial.print(TAG_CHANNEL_NAME);    Serial.print(": "); Serial.println(TAG_CHANNEL_VALUE);
+
+    sensor.addTag(TAG_UNIT_ID_NAME,    TAG_UNIT_ID_VALUE);
+    sensor.addTag(TAG_INSTRUMENT_NAME, TAG_INSTRUMENT_VALUE);
+    sensor.addTag(TAG_LOCATION_NAME,   TAG_LOCATION_VALUE);
+    sensor.addTag(TAG_SENSOR_NAME,     TAG_SENSOR_VALUE);
+    sensor.addTag(TAG_CHANNEL_NAME,    TAG_CHANNEL_VALUE);
+    Serial.println("=============================");
+
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextSize(1);
+    tft.setTextDatum(MC_DATUM);
+    tft.drawString("InfluxDB: " + String(client.getServerUrl()), tft.width() / 2, tft.height() / 2 - 40);
+    tft.drawString(String(TAG_UNIT_ID_NAME) + ": " + String(TAG_UNIT_ID_VALUE), tft.width() / 2, tft.height() / 2 - 24);
+    tft.drawString(String(TAG_INSTRUMENT_NAME) + ": " + String(TAG_INSTRUMENT_VALUE), tft.width() / 2, tft.height() / 2 - 8);
+    tft.drawString(String(TAG_LOCATION_NAME) + ": " + String(TAG_LOCATION_VALUE), tft.width() / 2, tft.height() / 2 + 8);
+    tft.drawString(String(TAG_SENSOR_NAME) + ": " + String(TAG_SENSOR_VALUE), tft.width() / 2, tft.height() / 2 + 24);
+    tft.drawString(String(TAG_CHANNEL_NAME) + ": " + String(TAG_CHANNEL_VALUE), tft.width() / 2, tft.height() / 2 + 40);
+    delay(10000);
+    tft.fillScreen(TFT_BLACK);
+  } else {
+    Serial.print("InfluxDB connection failed: ");
+    Serial.println(client.getLastErrorMessage());
+    //digitalWrite(LED_BUILTIN, LOW); // Turn the LED on by making the voltage HIGH
+  }
+
+//  pinMode(2, OUTPUT);
+ // pinMode(13, OUTPUT);
+ // pinMode(15, INPUT);
+ // pinMode(12, OUTPUT);
 }
 
 void setup() {
@@ -162,32 +442,46 @@ void setup() {
   ssid = cli.addSingleArgCmd("ssid", ssidCallback);
   pass = cli.addSingleArgCmd("pass", passCallback);
   info = cli.addCmd("info", infoCallback);
+  run = cli.addCmd("run", runCallback);
   
   // put your setup code here, to run once:
 
 }
 
 void loop() {
-  // Check if user typed something into the serial monitor
-  if (Serial.available()) {
-      //Serial.print("Database ip is: " + influxdb_url+"\n");
-      // Read out string from the serial monitor
-      String input = Serial.readStringUntil('\n');
+  /**
+   * 
+   * CLI Part
+   * 
+   */
+  if (!ready_to_go) {
+    // Check if user typed something into the serial monitor
+    if (Serial.available()) {
+        //Serial.print("Database ip is: " + influxdb_url+"\n");
+        // Read out string from the serial monitor
+        String input = Serial.readStringUntil('\n');
 
-      // Parse the user input into the CLI
-       if (input.length() > 1) {
-        cli.parse(input);
+        // Parse the user input into the CLI
+        if (input.length() > 1) {
+          cli.parse(input);
+        }
+    }
+    
+    if (cli.errored()) {
+        CommandError cmdError = cli.getError();
+        Serial.print("ERROR: ");
+        Serial.println(cmdError.toString());
+        if (cmdError.hasCommand()) {
+            Serial.print("Did you mean \"");
+            Serial.print(cmdError.getCommand().toString());
+            Serial.println("\"?");
+        }
+    }
+  } else {
+      if (btnCick) {
+        MeasureDataMAX31865PT100();
       }
-  }
-  
-  if (cli.errored()) {
-      CommandError cmdError = cli.getError();
-      Serial.print("ERROR: ");
-      Serial.println(cmdError.toString());
-      if (cmdError.hasCommand()) {
-          Serial.print("Did you mean \"");
-          Serial.print(cmdError.getCommand().toString());
-          Serial.println("\"?");
-      }
+      btn1.loop();
+      btn2.loop();
   }
 }
