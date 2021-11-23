@@ -19,18 +19,20 @@ Project: Common headers for TTOGO ESP32 GLADD IoT
 
 // Logo
 #include "UoG_DM_240x135.h"
-
+#include "team_logo.h"
 // Common definitions
-#define TFT_DISPOFF 		0x28
-#define TFT_SLPIN   		0x10
+#ifndef TFT_DISPOFF
+#define TFT_DISPOFF 0x28
+#endif
+#ifndef TFT_SLPIN
+#define TFT_SLPIN   0x10
+#endif
 #define TFT_MOSI            19
 #define TFT_SCLK            18
 #define TFT_CS              5
 #define TFT_DC              16
 #define TFT_RST             23
 #define TFT_BL              4   // Display backlight control pin
-#define TFT_BACKLIGHT_ON HIGH
-
 #define BUTTON_1            35
 #define BUTTON_2            0
 
