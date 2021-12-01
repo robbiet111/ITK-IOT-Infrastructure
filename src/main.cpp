@@ -83,7 +83,7 @@ Button2 btn1(BUTTON_1);
 Button2 btn2(BUTTON_2);
 char buff[512];
 int vref = 1100;
-int btnCick = true;
+int btnClick = true;
 int db_counter = 0;
 byte rcvData;
 
@@ -321,9 +321,12 @@ void MeasureDataMAX31865PT100() {
 void button_init() {
   btn1.setLongClickHandler([](Button2 & b) {
     //Serial.println("Btn GPIO_35 setLongClickHandler");
-    if (enterCli) sensor_setup();
-    btnCick = true;
-    enterCli = false;
+    if (enterCli) {
+      enterCli = false;
+      sensor_setup();
+      // ESP.restart();
+    }
+    btnClick = true;
     unsigned int time = b.wasPressedFor();
     Serial.print("You clicked ");
     if (time > 1500) {
@@ -342,49 +345,61 @@ void button_init() {
 
   btn1.setClickHandler([](Button2 & b) {
     Serial.println("DEBUG :: Btn GPIO_35 setClickHandler");
-    if (enterCli) sensor_setup();
-    btnCick = true;
-    enterCli = false;
+    if (enterCli) {
+      enterCli = false;
+      sensor_setup();
+      // ESP.restart();
+    }
+    btnClick = true;
   });
 
   btn1.setDoubleClickHandler([](Button2 & b) {
     Serial.println("DEBUG :: Btn GPIO_35 setDoubleClickHandler");
-    if (enterCli) sensor_setup();
-    btnCick = true;
-    enterCli = false;
+    if (enterCli) {
+      enterCli = false;
+      sensor_setup();
+      // ESP.restart();
+    }
+    btnClick = true;
   });
 
   btn1.setTripleClickHandler([](Button2 & b) {
     Serial.println("DEBUG :: Btn GPIO_35 setTripleClickHandler");
-    if (enterCli) sensor_setup();
-    btnCick = true;
-    enterCli = false;
-  });
-
-  btn2.setClickHandler([](Button2 & b) {
-    Serial.println("Enter CLI interface");
-    btnCick = true;
-    enterCli = true;
+    if (enterCli) {
+      enterCli = false;
+      sensor_setup();
+      // ESP.restart();
+    }
+    btnClick = true;
   });
 
   btn2.setLongClickHandler([](Button2 & b) {
     Serial.println("DEBUG :: Btn GPIO_0 setPressedHandler");
-    if (enterCli) sensor_setup();
-    btnCick = true;
-    enterCli = false;
+    if (enterCli) {
+      enterCli = false;
+      sensor_setup();
+      // ESP.restart();
+    }
+    btnClick = true;
+  });
+
+  btn2.setClickHandler([](Button2 & b) {
+    enterCli = true;
+    Serial.println("Enter CLI interface");
+    btnClick = true;
   });
 }
 
 void sensor_setup() {
   InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
-
+  Serial.println(wifi_ssid+" "+wifi_pass);
   WiFiMulti.addAP(wifi_ssid.c_str(), wifi_pass.c_str());
-
   delay(200);
   Serial.println("");
   Serial.print("Connecting to WiFi: ");
   Serial.println(wifi_ssid);
 
+  tft.fillScreen(TFT_BLACK);
   tft.setTextSize(2);
   tft.setTextDatum(MC_DATUM);
   tft.drawString("Connecting to WiFi", tft.width() / 2, tft.height() / 2 - 16);
@@ -392,13 +407,20 @@ void sensor_setup() {
 
   int counter = 0;
 
-  while (!enterCli && WiFiMulti.run() != WL_CONNECTED) {
-    Serial.print(".");
+  while (WiFiMulti.run() != WL_CONNECTED) {
+    // Serial.print(".");
     delay(100);
     counter += 1;
     if (counter == 5) {
       Serial.println("Entering CLI");
       enterCli = true;
+      tft.fillScreen(TFT_BLACK);
+      tft.setTextSize(2);
+      tft.setTextDatum(MC_DATUM);
+      tft.drawString("Connection failed", tft.width() / 2, tft.height() / 2-16);
+      tft.drawString("Entering CLI", tft.width() / 2, tft.height() / 2+16);
+      delay(2500);
+      break;
       // tft.fillScreen(TFT_BLACK);
       // tft.setTextSize(2);
       // tft.setTextDatum(MC_DATUM);
@@ -525,7 +547,7 @@ void setup() {
 }
 
 void loop() {
-  if (btnCick) {
+  if (btnClick) {
     if (enterCli) {
       checkCLI();
     } else {
