@@ -1,0 +1,28 @@
+image: python:3.9
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+  PLATFORMIO_CACHE_DIR: "$CI_PROJECT_DIR/.platformio-cache"
+
+cache:
+  paths:
+    - .pip-cache/
+    - .platformio-cache/
+
+stages:
+ - build
+
+before_script:
+  - "pip install -U platformio"
+  - "pio lib install 'Adafruit BusIO'"
+  - "pio lib install 'adafruit/Adafruit MAX31865 library'"
+  - "pio lib install 'lvgl/lvgl'"
+  - "pio lib install 'adafruit/Adafruit FT6206 Library'"
+  - "pio lib install 'tobiasschuerg/ESP8266 Influxdb'"
+  - "pio lib install 'spacehuhn/SimpleCLI'"
+  - "pio lib install 'bodmer/TFT_eSPI'"
+  - "pio lib install 'lennarthennigs/Button2@^1.6.5'"
+
+job:
+    stage: build
+    script: "pio run"
