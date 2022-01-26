@@ -24,7 +24,6 @@ before_script:
   - "pio lib install 'bodmer/TFT_eSPI'"
   - "pio lib install 'lennarthennigs/Button2@^1.6.5'"
   - "cp lib/lv_conf.h .pio/libdeps/esp32dev/"
-  - "ls -al .pio/libdeps/esp32dev/"
 
 job:
     stage: build
