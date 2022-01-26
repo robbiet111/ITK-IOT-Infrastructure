@@ -258,8 +258,8 @@ void checkCLI() {
  * 
  */
 // Wifi
-#include <WiFi.h>
-// #include <WiFiMulti.h>
+//#include <WiFi.h>
+#include <WiFiMulti.h>
 // InfluxDB2.0
 #include <InfluxDbClient.h>
 #include <InfluxDbCloud.h>
@@ -295,7 +295,7 @@ Adafruit_MAX31865 max_ada = Adafruit_MAX31865(33, 25, 26, 27);
 
 InfluxDBClient client;
 Point sensor("data");
-// WiFiMulti WiFiMulti;
+WiFiMulti WiFiMulti;
 char buff[512];
 int vref = 1100;
 int btnClick = true;
@@ -365,48 +365,72 @@ void MeasureDataMAX31865PT100() {
 	}	  
 }
 
-void sensor_setup(lv_task_t * task) {
+void sensor_setup() {
   if (shouldSetUp) {
     Serial.println("So it begins.");
-    // lv_label_set_text(status_label, "Status: Running Sensor Setup");
-    // // // InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
-    // Serial.println(wifi_ssid+" "+wifi_pass);
-    // WiFiMulti.addAP(wifi_ssid.c_str(), wifi_pass.c_str());
-    // delay(200);
-    // Serial.println("");
-    // Serial.print("Connecting to WiFi: ");
-    // Serial.println(wifi_ssid);
-    // lv_label_set_text_fmt(status_label, "Status: Connecting to WiFi\n%s",String(wifi_ssid));
-    // int counter = 0;
+    lv_label_set_text(status_label, "Status: Running Sensor Setup");
+    // // InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
+    Serial.println(wifi_ssid+" "+wifi_pass);
+    WiFiMulti.addAP(wifi_ssid.c_str(), wifi_pass.c_str());
+    delay(200);
+    Serial.println("");
+    Serial.print("Connecting to WiFi: ");
+    Serial.println(wifi_ssid);
+    lv_label_set_text_fmt(status_label, "Status: Connecting to WiFi\n%s",String(wifi_ssid));
+    int counter = 0;
 
-    // while (WiFiMulti.run() != WL_CONNECTED) {
-    //   delay(100);
-    //   counter += 1;
-    //   if (counter == 5) {
-    //     Serial.println("Entering CLI");
-    //     enterCLI = true;
-    //     lv_label_set_text(status_label, "Status: Connection failed");
-    //     delay(2500);
-    //     lv_label_set_text(status_label, "Status: Entering CLI");
-    //     delay(2500);
-    //     break;
-    //   }
-    // }
-    // if (!enterCLI) {
-    //   WiFi.setHostname(ESP32_HOST_NAME);
-    //   Serial.print("WiFi connected: "); Serial.println(WiFi.SSID());
-    //   Serial.print("Hostname: ");       Serial.println(WiFi.getHostname());
-    //   Serial.print("IP address: ");     Serial.println(WiFi.localIP()); char buf[16]; sprintf(buf, "%d.%d.%d.%d", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3] );
-    //   Serial.print("MAC address: ");    Serial.println(WiFi.macAddress());
+    while (WiFiMulti.run() != WL_CONNECTED) {
+      delay(100);
+      counter += 1;
+      if (counter == 5) {
+        Serial.println("Entering CLI");
+        enterCLI = true;
+        lv_label_set_text(status_label, "Status: Connection failed");
+        delay(2500);
+        lv_label_set_text(status_label, "Status: Entering CLI");
+        delay(2500);
+        break;
+      }
+    }
 
-    //   lv_label_set_text_fmt(info_label, "WiFi connected: %s\nHostname: %s\nIP address: %s\nMAC address: %s\n",String(WiFi.SSID()),String(WiFi.getHostname()),String(buf),String(WiFi.macAddress()));
-    //   delay(5000);
-    //   lv_label_set_text(status_label, "Status: Running Measurement");
-    // }
-    // refreshScreen = true;
+   vTaskDelay(5000/portTICK_PERIOD_MS);
+    if (!enterCLI) {
+      WiFi.setHostname(ESP32_HOST_NAME);
+      Serial.print("WiFi connected: "); Serial.println(WiFi.SSID());
+      Serial.print("Hostname: ");       Serial.println(WiFi.getHostname());
+      Serial.print("IP address: ");     Serial.println(WiFi.localIP()); char buf[16]; sprintf(buf, "%d.%d.%d.%d", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3] );
+      Serial.print("MAC address: ");    Serial.println(WiFi.macAddress());
+
+      lv_label_set_text_fmt(info_label, "WiFi connected: %s\nHostname: %s\nIP address: %s\nMAC address: %s\n",String(WiFi.SSID()),String(WiFi.getHostname()),String(buf),String(WiFi.macAddress()));
+      delay(5000);
+      lv_label_set_text(status_label, "Status: Running Measurement");
+    }
+    refreshScreen = true;
     shouldSetUp = false;
   }
 
+}
+
+
+
+void my_task_handler(void * parameters) {
+  Serial.println("Setup was fine");
+  for(;;) {
+    if (enterCLI) {
+      Serial.println("Check cli");
+      checkCLI();
+    } else {
+      Serial.println("not entering cli");
+      if (shouldSetUp) {
+      Serial.println("setup");
+        sensor_setup();
+      } else {
+        Serial.println("measure");
+        MeasureDataMAX31865PT100();
+        vTaskDelay(1000/portTICK_PERIOD_MS);
+      }
+    }
+  }
 }
 
 
@@ -514,41 +538,37 @@ void setup() {
   lv_scr_load(screenMain);
 
 
-  static uint32_t user_data = 10;
-  lv_task_t * sensor_setup_task = lv_task_create(sensor_setup, 5000, LV_TASK_PRIO_MID, &user_data);
+  // Initialise EEPROM and read from it
+  EEPROM.begin(EEPROM_SIZE);
+  influxdb_url = readStringFromEEPROM(INFLUXDB_URL_ADDR);
+  wifi_ssid = readStringFromEEPROM(WIFI_SSID_ADDR);
+  wifi_pass = readStringFromEEPROM(WIFI_PASS_ADDR);
+  wifi_ssid = "Kuba";
+  wifi_pass="jirikara";
+  delay(3000);
+  Serial.println(wifi_ssid+" "+wifi_pass);
 
-
-  // // Initialise EEPROM and read from it
-  // EEPROM.begin(EEPROM_SIZE);
-  // influxdb_url = readStringFromEEPROM(INFLUXDB_URL_ADDR);
-  // wifi_ssid = readStringFromEEPROM(WIFI_SSID_ADDR);
-  // wifi_pass = readStringFromEEPROM(WIFI_PASS_ADDR);
-  // wifi_ssid = "Kuba";
-  // wifi_pass="jirikara";
-  // delay(3000);
-  // Serial.println(wifi_ssid+" "+wifi_pass);
-  // WiFi.begin("Kuba","jirikara");
-
-  // Serial.println("boom");
-  // while (WiFi.status() != WL_CONNECTED) {
-  //     delay(500);
-  //     Serial.print(".");
-  // }
-  // // Simple CLI
-  // cli.setOnError(errorCallback); // Set error Callback
-
-  // // Create the command with callback function which updates influxdb_url
-  // dbip = cli.addSingleArgCmd("dbip", dbipCallback);
-  // ssid = cli.addSingleArgCmd("ssid", ssidCallback);
-  // pass = cli.addSingleArgCmd("pass", passCallback);
-  // info = cli.addCmd("info", infoCallback);
-  // // run = cli.addCmd("run", runCallback);
+  // Create the command with callback function which updates influxdb_url
+  dbip = cli.addSingleArgCmd("dbip", dbipCallback);
+  ssid = cli.addSingleArgCmd("ssid", ssidCallback);
+  pass = cli.addSingleArgCmd("pass", passCallback);
+  info = cli.addCmd("info", infoCallback);
+  // run = cli.addCmd("run", runCallback);
   
-  // // Sensor setup
-  // max_ada.begin(MAX31865_2WIRE);  // set to 2WIRE or 4WIRE as necessary 
+  // Sensor setup
+  max_ada.begin(MAX31865_2WIRE);  // set to 2WIRE or 4WIRE as necessary 
 
-  // rcvData = 255;
+  rcvData = 255;
 
+  xTaskCreatePinnedToCore(
+    my_task_handler,
+    "My attempt for a task",
+    5000,
+    NULL,
+    1,
+    NULL,
+    CONFIG_ARDUINO_RUNNING_CORE
+  );
   //Sensor Setup
   // sensor_setup();
 }
