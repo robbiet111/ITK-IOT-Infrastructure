@@ -35,6 +35,7 @@ Project: Common headers for TTOGO ESP32 GLADD IoT
 #define TFT_BL              4   // Display backlight control pin
 #define BUTTON_1            35
 #define BUTTON_2            0
+#define TFT_BACKLIGHT_ON HIGH
 
 // Wifi and database definitions
 // Dima's house WiFi
