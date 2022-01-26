@@ -1,5 +1,8 @@
 image: python:3.9
 
+tags:
+  - docker
+
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
   PLATFORMIO_CACHE_DIR: "$CI_PROJECT_DIR/.platformio-cache"
