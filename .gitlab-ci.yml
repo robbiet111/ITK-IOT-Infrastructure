@@ -15,7 +15,11 @@ stages:
 
 before_script:
   - "pip install -U platformio"
+  - "pio lib install 'adafruit/Adafruit MAX31865 library'"
+  - "pio lib install 'tobiasschuerg/ESP8266 Influxdb'"
   - "pio lib install 'spacehuhn/SimpleCLI'"
+  - "pio lib install 'bodmer/TFT_eSPI'"
+  - "pio lib install 'lennarthennigs/Button2@^1.6.5'"
 
 job:
     stage: build
