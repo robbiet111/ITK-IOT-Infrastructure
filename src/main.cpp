@@ -1,193 +1,154 @@
-/*
- * Author: Jakub Jelinek
- * Project: ITk IoT Infrastructure
-*/
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <WebServer.h>
+#include <ESPmDNS.h>
+#include <Update.h>
 
-#include <SimpleCLI.h> // for instructions of use see https://github.com/spacehuhn/SimpleCLI
-#include <stdio.h>
-#include <EEPROM.h>
+const char* host = "esp32";
+const char* ssid = "Drop it like its hotspot";
+const char* password = "Yousuf2001";
 
-// Number of bytes needed in ROM, max should be 512
-/**
- * EEPROM_SIZE =
- *    influxdb_url = "http://xxx.xxx.xxx.xxx:xxxx" -> 27 characters
- *    WIFI_SSID max 32 character long string
- *    WIFI_PASS
- *        - WEP - Maximum key length is 16 characters
- *        - WPA-PSK/WPA2-PSK - Maximum key length is 63 characters
- *        -> 16 characters allowed now
- *  Note: For each string, one byte is reserved for its length
- */
-#define EEPROM_SIZE 80
-/**
- * EEPROM contents
- * 0 - 28 influxdb_url
- * 29 - 61 wifi_ssid
- * 62-78 wifi_pass
- */
-#define INFLUXDB_URL_ADDR 0
-#define WIFI_SSID_ADDR 29
-#define WIFI_PASS_ADDR 62
+WebServer server(80);
 
-SimpleCLI cli;
-Command dbip;
-Command ssid;
-Command pass;
-Command info;
+/* Style */
+String style =
+"<style>#file-input,input{width:100%;height:44px;border-radius:4px;margin:10px auto;font-size:15px}"
+"input{background:#f1f1f1;border:0;padding:0 15px}body{background:#3498db;font-family:sans-serif;font-size:14px;color:#777}"
+"#file-input{padding:0;border:1px solid #ddd;line-height:44px;text-align:left;display:block;cursor:pointer}"
+"#bar,#prgbar{background-color:#f1f1f1;border-radius:10px}#bar{background-color:#3498db;width:0%;height:10px}"
+"form{background:#fff;max-width:258px;margin:75px auto;padding:30px;border-radius:5px;text-align:center}"
+".btn{background:#3498db;color:#fff;cursor:pointer}</style>";
 
-// Variables
-String influxdb_url; // Database IP address
-String wifi_ssid;
-String wifi_pass;
+/* Login page */
+String loginIndex = 
+"<form name=loginForm>"
+"<h1>ESP32 Login</h1>"
+"<input name=userid placeholder='User ID'> "
+"<input name=pwd placeholder=Password type=Password> "
+"<input type=submit onclick=check(this.form) class=btn value=Login></form>"
+"<script>"
+"function check(form) {"
+"if(form.userid.value=='admin' && form.pwd.value=='admin')"
+"{window.open('/serverIndex')}"
+"else"
+"{alert('Error Password or Username')}"
+"}"
+"</script>" + style;
+ 
+/* Server Index Page */
+String serverIndex = 
+"<script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>"
+"<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>"
+"<input type='file' name='update' id='file' onchange='sub(this)' style=display:none>"
+"<label id='file-input' for='file'>   Choose file...</label>"
+"<input type='submit' class=btn value='Update'>"
+"<br><br>"
+"<div id='prg'></div>"
+"<br><div id='prgbar'><div id='bar'></div></div><br></form>"
+"<script>"
+"function sub(obj){"
+"var fileName = obj.value.split('\\\\');"
+"document.getElementById('file-input').innerHTML = '   '+ fileName[fileName.length-1];"
+"};"
+"$('form').submit(function(e){"
+"e.preventDefault();"
+"var form = $('#upload_form')[0];"
+"var data = new FormData(form);"
+"$.ajax({"
+"url: '/update',"
+"type: 'POST',"
+"data: data,"
+"contentType: false,"
+"processData:false,"
+"xhr: function() {"
+"var xhr = new window.XMLHttpRequest();"
+"xhr.upload.addEventListener('progress', function(evt) {"
+"if (evt.lengthComputable) {"
+"var per = evt.loaded / evt.total;"
+"$('#prg').html('progress: ' + Math.round(per*100) + '%');"
+"$('#bar').css('width',Math.round(per*100) + '%');"
+"}"
+"}, false);"
+"return xhr;"
+"},"
+"success:function(d, s) {"
+"console.log('success!') "
+"},"
+"error: function (a, b, c) {"
+"}"
+"});"
+"});"
+"</script>" + style;
 
-
-void writeStringToEEPROM(int address, const String &data);
-String readStringFromEEPROM(int addrOffset);
-
-void writeStringToEEPROM(int address, const String &data)
-{
-  byte len = data.length();
-  EEPROM.write(address, len);
-
-  for (int i = 0; i < len; i++)
-  {
-    EEPROM.write(address + 1 + i, data[i]);
-  }
-  EEPROM.commit();
-}
-
-String readStringFromEEPROM(int addrOffset)
-{
-  int newStrLen = EEPROM.read(addrOffset);
-  char data[newStrLen + 1];
-  for (int i = 0; i < newStrLen; i++)
-  {
-    data[i] = EEPROM.read(addrOffset + 1 + i);
-  }
-  data[newStrLen] = '\0';
-  return String(data);
-}
-
-// Callback function for dbip command
-void dbipCallback(cmd* c) {
-    Command cmd(c); // Create wrapper object
-
-    // Get first (and only) Argument
-    Argument arg = cmd.getArgument(0);
-
-    // Get value of argument
-    String argVal = arg.getValue();
-    const char * value = argVal.c_str();
-
-    // Validate Value
-    int l1,l2,l3,l4, port;
-    if (sscanf(value, "http://%d.%d.%d.%d:%d", &l1, &l2, &l3, &l4, &port) == 5) {
-      influxdb_url = argVal;
-      writeStringToEEPROM(INFLUXDB_URL_ADDR, influxdb_url);
-      // Print new ip
-      Serial.print("> New influx DB url: "+influxdb_url+"\n");
-    } else {
-      Serial.print("Error: invalid ip address \"" + argVal+"\"\n");
-    }
-}
-
-void ssidCallback(cmd* c) {
-    Command cmd(c); // Create wrapper object
-
-    // Get first (and only) Argument
-    Argument arg = cmd.getArgument(0);
-
-    // Get value of argument
-    String argVal = arg.getValue();
-
-    wifi_ssid = argVal;
-    writeStringToEEPROM(WIFI_SSID_ADDR, wifi_ssid);
-    // Print new ssid
-    Serial.print("> New wifi ssid: "+wifi_ssid+"\n");
-}
-
-void passCallback(cmd* c) {
-    Command cmd(c); // Create wrapper object
-
-    // Get first (and only) Argument
-    Argument arg = cmd.getArgument(0);
-
-    // Get value of argument
-    String argVal = arg.getValue();
-
-    wifi_pass = argVal;
-    writeStringToEEPROM(WIFI_PASS_ADDR, wifi_pass);
-    // Print new ssid
-    Serial.print("> New wifi password: "+wifi_pass+"\n");
-}
-
-void infoCallback(cmd* c) {
-    Command cmd(c); // Create wrapper object
-    Serial.println("\nSystem information:");
-    Serial.print("\tConnected to wifi with ssid: "+wifi_ssid+"\n");
-    Serial.printf("\tUsed password of length %d\n",wifi_pass.length());
-    Serial.print("\tUsed password: "+wifi_pass+"\n");
-    Serial.print("\tDatabase url: "+influxdb_url+"\n");
-}
-
-// Callback in case of an error
-void errorCallback(cmd_error* e) {
-    CommandError cmdError(e); // Create wrapper object
-
-    Serial.print("ERROR: ");
-    Serial.println(cmdError.toString());
-
-    if (cmdError.hasCommand()) {
-        Serial.print("Did you mean \"");
-        Serial.print(cmdError.getCommand().toString());
-        Serial.println("\"?");
-    }
-}
-
-void setup() {
-
+/* setup function */
+void setup(void) {
   Serial.begin(115200);
 
-  // Initialise EEPROM and read from it
-  EEPROM.begin(EEPROM_SIZE);
-  influxdb_url = readStringFromEEPROM(INFLUXDB_URL_ADDR);
-  wifi_ssid = readStringFromEEPROM(WIFI_SSID_ADDR);
-  wifi_pass = readStringFromEEPROM(WIFI_PASS_ADDR);
+  // Connect to WiFi network
+  WiFi.begin(ssid, password);
+  Serial.println("");
 
-  // Simple CLI
-  cli.setOnError(errorCallback); // Set error Callback
+  // Wait for connection
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
 
-  // Create the command with callback function which updates influxdb_url
-  dbip = cli.addSingleArgCmd("dbip", dbipCallback);
-  ssid = cli.addSingleArgCmd("ssid", ssidCallback);
-  pass = cli.addSingleArgCmd("pass", passCallback);
-  info = cli.addCmd("info", infoCallback);
-  
-  // put your setup code here, to run once:
-
+  /*use mdns for host name resolution*/
+  if (!MDNS.begin(host)) { //http://esp32.local
+    Serial.println("Error setting up MDNS responder!");
+    while (1) {
+      delay(1000);
+    }
+  }
+  Serial.println("mDNS responder started");
+  /*return index page which is stored in serverIndex */
+  server.on("/", HTTP_GET, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/html", loginIndex);
+  });
+  server.on("/serverIndex", HTTP_GET, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/html", serverIndex);
+  });
+  /*handling uploading firmware file */
+  server.on("/update", HTTP_POST, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+    ESP.restart();
+  }, []() {
+    HTTPUpload& upload = server.upload();
+    Serial.print("Uploading firmware...");
+    if (upload.status == UPLOAD_FILE_START) {
+      Serial.printf("Update: %s\n", upload.filename.c_str());
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { //start with max available size
+        Update.printError(Serial);
+      }
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      /* flashing firmware to ESP*/
+      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+        Update.printError(Serial);
+      }
+    } else if (upload.status == UPLOAD_FILE_END) {
+      if (Update.end(true)) { //true to set the size to the current progress
+        Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+        Serial.print("Successfully uploaded!");
+      } else {
+        Update.printError(Serial);
+        Serial.print("Failed uploading.");
+      }
+    }
+  });
+  server.begin();
 }
 
-void loop() {
-  // Check if user typed something into the serial monitor
-  if (Serial.available()) {
-      //Serial.print("Database ip is: " + influxdb_url+"\n");
-      // Read out string from the serial monitor
-      String input = Serial.readStringUntil('\n');
-
-      // Parse the user input into the CLI
-       if (input.length() > 1) {
-        cli.parse(input);
-      }
-  }
+void loop(void) {
+  server.handleClient();
   
-  if (cli.errored()) {
-      CommandError cmdError = cli.getError();
-      Serial.print("ERROR: ");
-      Serial.println(cmdError.toString());
-      if (cmdError.hasCommand()) {
-          Serial.print("Did you mean \"");
-          Serial.print(cmdError.getCommand().toString());
-          Serial.println("\"?");
-      }
-  }
+  delay(1);
 }
