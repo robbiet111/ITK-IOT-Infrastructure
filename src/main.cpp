@@ -368,7 +368,7 @@ void MeasureDataMAX31865PT100() {
       max_ada.clearFault();
     }
 		else {
-			Serial.print("Temperature: "); Serial.print(temperature); Serial.println("°C");
+			Serial.print("data: "); Serial.print(temperature); Serial.println(" °C");
 			sensor.clearFields();
 			sensor.addField(FIELD_NAME_T, float(temperature));
 
@@ -406,8 +406,8 @@ void MeasureDataMAX31865PT100() {
  */
 void button_init() {
   btn1.setClickHandler([](Button2 & b) {
-    Serial.println("DEBUG :: Btn GPIO_35 setClickHandler");
-    Serial.println("Lowering value of current mode");
+    // Serial.println("DEBUG :: Btn GPIO_35 setClickHandler");
+    // Serial.println("Lowering value of current mode");
     if (current_mode ==  measure) {
       current_mode = update;
       ota_setup();
@@ -422,8 +422,8 @@ void button_init() {
   });
 
   btn2.setClickHandler([](Button2 & b) {
-    Serial.println("DEBUG :: Btn GPIO_35 setClickHandler");
-    Serial.println("Increasing value of current mode");
+    // Serial.println("DEBUG :: Btn GPIO_35 setClickHandler");
+    // Serial.println("Increasing value of current mode");
     if (current_mode ==  update) {
       current_mode = measure;
       sensor_setup();
@@ -493,47 +493,6 @@ void sensor_setup() {
     tft.drawString("MAC address: " + String(WiFi.macAddress()), tft.width() / 2, tft.height() / 2 + 24);
     delay(5000);
     tft.fillScreen(TFT_BLACK);
-
-    // Check server connection
-    // if (client.validateConnection()) {
-    //   Serial.print("Connected to InfluxDB ");
-    //   Serial.println(client.getServerUrl());
-    //   Serial.println("All connections successful. Exiting setup.");
-    //   Serial.println("======= InfluxDB tags =======");
-    //   Serial.print(TAG_UNIT_ID_NAME);    Serial.print(": "); Serial.println(TAG_UNIT_ID_VALUE);
-    //   Serial.print(TAG_INSTRUMENT_NAME); Serial.print(": "); Serial.println(TAG_INSTRUMENT_VALUE);
-    //   Serial.print(TAG_LOCATION_NAME);   Serial.print(": "); Serial.println(TAG_LOCATION_VALUE);
-    //   Serial.print(TAG_SENSOR_NAME);     Serial.print(": "); Serial.println(TAG_SENSOR_VALUE);
-    //   Serial.print(TAG_CHANNEL_NAME);    Serial.print(": "); Serial.println(TAG_CHANNEL_VALUE);
-
-    //   sensor.addTag(TAG_UNIT_ID_NAME,    TAG_UNIT_ID_VALUE);
-    //   sensor.addTag(TAG_INSTRUMENT_NAME, TAG_INSTRUMENT_VALUE);
-    //   sensor.addTag(TAG_LOCATION_NAME,   TAG_LOCATION_VALUE);
-    //   sensor.addTag(TAG_SENSOR_NAME,     TAG_SENSOR_VALUE);
-    //   sensor.addTag(TAG_CHANNEL_NAME,    TAG_CHANNEL_VALUE);
-    //   Serial.println("=============================");
-
-    //   tft.fillScreen(TFT_BLACK);
-    //   tft.setTextSize(1);
-    //   tft.setTextDatum(MC_DATUM);
-    //   tft.drawString("InfluxDB: " + String(client.getServerUrl()), tft.width() / 2, tft.height() / 2 - 40);
-    //   tft.drawString(String(TAG_UNIT_ID_NAME) + ": " + String(TAG_UNIT_ID_VALUE), tft.width() / 2, tft.height() / 2 - 24);
-    //   tft.drawString(String(TAG_INSTRUMENT_NAME) + ": " + String(TAG_INSTRUMENT_VALUE), tft.width() / 2, tft.height() / 2 - 8);
-    //   tft.drawString(String(TAG_LOCATION_NAME) + ": " + String(TAG_LOCATION_VALUE), tft.width() / 2, tft.height() / 2 + 8);
-    //   tft.drawString(String(TAG_SENSOR_NAME) + ": " + String(TAG_SENSOR_VALUE), tft.width() / 2, tft.height() / 2 + 24);
-    //   tft.drawString(String(TAG_CHANNEL_NAME) + ": " + String(TAG_CHANNEL_VALUE), tft.width() / 2, tft.height() / 2 + 40);
-    //   delay(10000);
-    //   tft.fillScreen(TFT_BLACK);
-    // } else {
-    //   Serial.print("InfluxDB connection failed: ");
-    //   Serial.println(client.getLastErrorMessage());
-    //   //digitalWrite(LED_BUILTIN, LOW); // Turn the LED on by making the voltage HIGH
-    // }
-
-  //  pinMode(2, OUTPUT);
-  // pinMode(13, OUTPUT);
-  // pinMode(15, INPUT);
-  // pinMode(12, OUTPUT);
   }
 }
 
