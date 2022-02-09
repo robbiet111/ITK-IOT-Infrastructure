@@ -35,7 +35,7 @@ Command dbip;
 Command ssid;
 Command pass;
 Command info;
-// Command run;
+Command run;
 
 // Variables stored in ROM
 String influxdb_url; // Database IP address
@@ -184,12 +184,14 @@ void infoCallback(cmd* c) {
     Serial.print("\tDatabase url: "+influxdb_url+"\n");
 }
 
-// void runCallback(cmd* c) {
-//     Command cmd(c); // Create wrapper object
-//     sensor_setup();
-//     ready_to_go = true;
-//     Serial.println("\nRunning...");
-// }
+void runCallback(cmd* c) {
+    Command cmd(c); // Create wrapper object
+    Serial.println("\nRunning...");
+
+    current_mode = measure;
+    sensor_setup();
+    btnClick = true;
+}
 
 // Callback in case of an error
 void errorCallback(cmd_error* e) {
@@ -553,7 +555,7 @@ void setup() {
   ssid = cli.addSingleArgCmd("ssid", ssidCallback);
   pass = cli.addSingleArgCmd("pass", passCallback);
   info = cli.addCmd("info", infoCallback);
-  // run = cli.addCmd("run", runCallback);
+  run = cli.addCmd("run", runCallback);
   
   // Sensor setup
   max_ada.begin(MAX31865_2WIRE);  // set to 2WIRE or 4WIRE as necessary 
