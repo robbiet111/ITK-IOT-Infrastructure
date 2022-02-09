@@ -9,7 +9,10 @@ if __name__ == "__main__":
             if ser.in_waiting > 0:
                 line = ser.readline().decode('utf-8').rstrip()
                 line_segments = line.split()
-                if (line_segments[0]=="data:"):
-                    print(line_segments[1])
+                if (len(line_segments) > 0):
+                    if (line_segments[0]=="data:"):
+                        print(line_segments[1])
+                    else:
+                        print(line)
                 else:
                     print(line)
