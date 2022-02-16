@@ -36,6 +36,7 @@ Command ssid;
 Command pass;
 Command info;
 Command run;
+Command otau;
 
 // Variables stored in ROM
 String influxdb_url; // Database IP address
@@ -97,6 +98,7 @@ byte rcvData;
 void writeStringToEEPROM(int address, const String &data);
 String readStringFromEEPROM(int addrOffset);
 void sensor_setup();
+void ota_setup();
 
 void writeStringToEEPROM(int address, const String &data)
 {
@@ -186,10 +188,17 @@ void infoCallback(cmd* c) {
 
 void runCallback(cmd* c) {
     Command cmd(c); // Create wrapper object
-    Serial.println("\nRunning...");
 
     current_mode = measure;
     sensor_setup();
+    btnClick = true;
+}
+
+void otauCallback(cmd* c) {
+    Command cmd(c); // Create wrapper object
+
+    current_mode = update;
+    ota_setup();
     btnClick = true;
 }
 
@@ -515,6 +524,7 @@ void setup() {
   pass = cli.addSingleArgCmd("pass", passCallback);
   info = cli.addCmd("info", infoCallback);
   run = cli.addCmd("run", runCallback);
+  otau = cli.addCmd("otau", otauCallback);
   
   // Sensor setup
   max_ada.begin(MAX31865_2WIRE);  // set to 2WIRE or 4WIRE as necessary 
