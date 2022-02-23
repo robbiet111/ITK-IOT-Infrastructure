@@ -77,8 +77,6 @@ enum running_mode {measure=0, enter_cli=1, update=2};
 running_mode current_mode = measure;
 bool refreshScreen = true;
 
-InfluxDBClient client;
-Point sensor("data");
 WiFiMulti WiFiMulti;
 TFT_eSPI tft = TFT_eSPI(135, 240); // Invoke custom library
 Button2 btn1(BUTTON_1);
@@ -227,7 +225,6 @@ void checkCLI() {
   }
   // Check if user typed something into the serial monitor
   if (Serial.available()) {
-      //Serial.print("Database ip is: " + influxdb_url+"\n");
       // Read out string from the serial monitor
       String input = Serial.readStringUntil('\n');
 
@@ -342,13 +339,9 @@ void MeasureDataMAX31865PT100() {
 		timeStamp = millis();
 
     uint16_t rtd = max_ada.readRTD();
-    //Serial.print("RTD value: "); Serial.println(rtd);
     float ratio = rtd;
     ratio /= 32768;
-    //Serial.print("Ratio = "); Serial.println(ratio,8);
-    //Serial.print("Resistance = "); Serial.println(RREF*ratio,8);
     float myTemp = (RREF*ratio / 1250);
-    //Serial.print("Temperature = ");
     float temperature = 0.0;
     temperature = max_ada.temperature(RNOMINAL, RREF);
     
@@ -378,26 +371,12 @@ void MeasureDataMAX31865PT100() {
     }
 		else {
 			Serial.print("data: "); Serial.print(temperature); Serial.println(" °C");
-			sensor.clearFields();
-			sensor.addField(FIELD_NAME_T, float(temperature));
 
 			tft.setTextSize(2);
 			tft.fillScreen(TFT_BLACK);
 			tft.setTextDatum(MC_DATUM);
 			tft.drawString(String("T: ") + String(temperature) + " *C", tft.width() / 2, tft.height() / 2);
 
-			db_counter++;
-			if (db_counter == 60) {
-				if (!client.writePoint(sensor)) {
-				  Serial.print("InfluxDB write failed: ");
-				  Serial.println(client.getLastErrorMessage());
-				  //Serial.println("Calling ESP hard reset...");
-				  //ESP.restart();
-				} else {
-				  Serial.println("InfluxDB write OK");
-				}
-				db_counter = 0;
-			}
 		}		
 	}	  
 }
@@ -415,8 +394,6 @@ void MeasureDataMAX31865PT100() {
  */
 void button_init() {
   btn1.setClickHandler([](Button2 & b) {
-    // Serial.println("DEBUG :: Btn GPIO_35 setClickHandler");
-    // Serial.println("Lowering value of current mode");
     if (current_mode ==  measure) {
       current_mode = update;
       ota_setup();
@@ -431,8 +408,6 @@ void button_init() {
   });
 
   btn2.setClickHandler([](Button2 & b) {
-    // Serial.println("DEBUG :: Btn GPIO_35 setClickHandler");
-    // Serial.println("Increasing value of current mode");
     if (current_mode ==  update) {
       current_mode = measure;
       sensor_setup();
@@ -448,7 +423,6 @@ void button_init() {
 }
 
 void sensor_setup() {
-  InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
   Serial.println(wifi_ssid+" "+wifi_pass);
   WiFiMulti.addAP(wifi_ssid.c_str(), wifi_pass.c_str());
   delay(200);
@@ -465,7 +439,6 @@ void sensor_setup() {
   int counter = 0;
 
   while (WiFiMulti.run() != WL_CONNECTED) {
-    // Serial.print(".");
     delay(100);
     counter += 1;
     if (counter == 5) {
@@ -478,12 +451,6 @@ void sensor_setup() {
       tft.drawString("Entering CLI", tft.width() / 2, tft.height() / 2+16);
       delay(2500);
       break;
-      // tft.fillScreen(TFT_BLACK);
-      // tft.setTextSize(2);
-      // tft.setTextDatum(MC_DATUM);
-      // tft.drawString("Rebooting TTGO ESP32", tft.width() / 2, tft.height() / 2);
-      // delay(1000);
-      // ESP.restart();
     }
   }
   if (current_mode == measure) {
@@ -544,16 +511,6 @@ void setup() {
     pinMode(TFT_BL, OUTPUT);                // Set backlight pin to output mode
     digitalWrite(TFT_BL, TFT_BACKLIGHT_ON); // Turn backlight on. TFT_BACKLIGHT_ON has been set in the TFT_eSPI library in the User Setup file TTGO_T_Display.h
   }
-
-  tft.setSwapBytes(true);
-  // tft.pushImage(0, 0,  240, 135, UoG_DM_240x135);
-  tft.pushImage(0, 0,  240, 135, team_logo);
-  delay(5000);
-
-  // tft.setRotation(3);
-  // tft.fillScreen(TFT_RED); delay(1000);
-  // tft.fillScreen(TFT_BLUE); delay(1000);
-  // tft.fillScreen(TFT_GREEN); delay(1000);
 
   button_init();
   
