@@ -97,6 +97,7 @@ void writeStringToEEPROM(int address, const String &data);
 String readStringFromEEPROM(int addrOffset);
 void sensor_setup();
 void ota_setup();
+void clear_display(int font_size);
 
 void writeStringToEEPROM(int address, const String &data)
 {
@@ -217,9 +218,7 @@ void errorCallback(cmd_error* e) {
 void checkCLI() {
   if (refreshScreen) {
     Serial.println("Entering CLI");
-    tft.setTextSize(2);
-    tft.fillScreen(TFT_BLACK);
-    tft.setTextDatum(MC_DATUM);
+    clear_display(2);
     tft.drawString("> CLI", tft.width() / 2, tft.height() / 2);
     refreshScreen = false;
   }
@@ -262,6 +261,12 @@ const char* host = "esp32";
 WebServer server(80);
 
 void ota_setup() {
+  if (refreshScreen) {
+    Serial.println("Starting OTA");
+    clear_display(2);
+    tft.drawString("< OTA >", tft.width() / 2, tft.height() / 2);
+    refreshScreen = false;
+  }
 // Wait for connection
   while (WiFiMulti.run() != WL_CONNECTED) {
     delay(500);
@@ -372,9 +377,7 @@ void MeasureDataMAX31865PT100() {
 		else {
 			Serial.print("data: "); Serial.print(temperature); Serial.println(" °C");
 
-			tft.setTextSize(2);
-			tft.fillScreen(TFT_BLACK);
-			tft.setTextDatum(MC_DATUM);
+      clear_display(2);
 			tft.drawString(String("T: ") + String(temperature) + " *C", tft.width() / 2, tft.height() / 2);
 
 		}		
@@ -392,10 +395,21 @@ void MeasureDataMAX31865PT100() {
  * Setup Part
  * 
  */
+void clear_display(int font_size) {
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextSize(font_size);
+  tft.setTextDatum(MC_DATUM);
+}
+
+void put_on_display(String text, int pos) {
+  tft.drawString(text, tft.width() / 2, tft.height() / 2 + pos);
+}
+
 void button_init() {
   btn1.setClickHandler([](Button2 & b) {
     if (current_mode ==  measure) {
       current_mode = update;
+      refreshScreen = true;
       ota_setup();
     } else if (current_mode == enter_cli){
       current_mode = measure;
@@ -416,6 +430,7 @@ void button_init() {
       refreshScreen = true;
     } else if (current_mode == enter_cli) {
       current_mode = update;
+      refreshScreen = true;
       ota_setup();
     }
     btnClick = true;
@@ -430,9 +445,8 @@ void sensor_setup() {
   Serial.print("Connecting to WiFi: ");
   Serial.println(wifi_ssid);
 
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextSize(2);
-  tft.setTextDatum(MC_DATUM);
+
+  clear_display(2);
   tft.drawString("Connecting to WiFi", tft.width() / 2, tft.height() / 2 - 16);
   tft.drawString(String(wifi_ssid), tft.width() / 2, tft.height() / 2 + 16);
 
@@ -444,9 +458,7 @@ void sensor_setup() {
     if (counter == 5) {
       Serial.println("Entering CLI");
       current_mode = enter_cli;
-      tft.fillScreen(TFT_BLACK);
-      tft.setTextSize(2);
-      tft.setTextDatum(MC_DATUM);
+      clear_display(2);
       tft.drawString("Connection failed", tft.width() / 2, tft.height() / 2-16);
       tft.drawString("Entering CLI", tft.width() / 2, tft.height() / 2+16);
       delay(2500);
@@ -460,9 +472,7 @@ void sensor_setup() {
     Serial.print("IP address: ");     Serial.println(WiFi.localIP()); char buf[16]; sprintf(buf, "%d.%d.%d.%d", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3] );
     Serial.print("MAC address: ");    Serial.println(WiFi.macAddress());
 
-    tft.fillScreen(TFT_BLACK);
-    tft.setTextSize(1);
-    tft.setTextDatum(MC_DATUM);
+    clear_display(1);
     tft.drawString("WiFi connected: " + String(WiFi.SSID()), tft.width() / 2, tft.height() / 2 - 24);
     tft.drawString("Hostname: " + String(WiFi.getHostname()), tft.width() / 2, tft.height() / 2 - 8);
     tft.drawString("IP address: " + String(buf), tft.width() / 2, tft.height() / 2 + 8);
@@ -506,11 +516,23 @@ void setup() {
   tft.setCursor(0, 0);
   tft.setTextDatum(MC_DATUM);
   tft.setTextSize(1);
+  
+    tft.setSwapBytes(true);
 
   if (TFT_BL > 0) {                           // TFT_BL has been set in the TFT_eSPI library in the User Setup file TTGO_T_Display.h
     pinMode(TFT_BL, OUTPUT);                // Set backlight pin to output mode
     digitalWrite(TFT_BL, TFT_BACKLIGHT_ON); // Turn backlight on. TFT_BACKLIGHT_ON has been set in the TFT_eSPI library in the User Setup file TTGO_T_Display.h
   }
+
+  tft.setRotation(0);
+  tft.fillScreen(TFT_RED);
+  delay(2000);
+  tft.fillScreen(TFT_BLUE);
+  delay(2000);
+  tft.fillScreen(TFT_GREEN);
+  delay(2000);
+
+  tft.setRotation(1);
 
   button_init();
   
