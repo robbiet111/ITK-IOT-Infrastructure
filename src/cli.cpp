@@ -1,5 +1,5 @@
 #include "cli_namespace.h"
-#include "ota_namespace.h"
+#include "elegant_ota_namespace.h"
 #include "common_namespace.h"
 
 namespace CLI {
@@ -14,7 +14,7 @@ namespace CLI {
         Command cmd(c); // Create wrapper object
 
         current_mode = update;
-        OTA::ota_setup();
+        elegant_OTA::ota_setup();
         btnClick = true;
     }
 

@@ -8,7 +8,8 @@
 #include <EEPROM.h>
 #include "common_namespace.h"
 #include "cli_namespace.h"
-#include "ota_namespace.h"
+// #include "ota_namespace.h"
+#include "elegant_ota_namespace.h"
 #include "experiment_namespace.h"
 using namespace common;
 
@@ -21,6 +22,7 @@ using namespace common;
 // #define RREF 430.0
 // // The 'nominal' 0-degrees-C resistance of the sensor
 // // 100.0 for PT100, 1000.0 for PT1000
+
 // #define RNOMINAL 100.0
 
 #define TAG_UNIT_ID_NAME      "unit_id"
@@ -60,7 +62,7 @@ void button_init() {
     if (current_mode ==  measure) {
       current_mode = update;
       refreshScreen = true;
-      OTA::ota_setup();
+      elegant_OTA::ota_setup();
     } else if (current_mode == enter_cli){
       current_mode = measure;
       sensor_setup();
@@ -81,7 +83,7 @@ void button_init() {
     } else if (current_mode == enter_cli) {
       current_mode = update;
       refreshScreen = true;
-      OTA::ota_setup();
+      elegant_OTA::ota_setup();
     }
     btnClick = true;
   });
@@ -157,9 +159,7 @@ void loop() {
     } else if (current_mode == measure) {
       experiment::measure();
     } else if (current_mode == update) {
-      server.handleClient();
-    } else {
-      Serial.println("ELSE");
+      elegant_OTA::ws.cleanupClients();
     }
   }
   btn1.loop();
