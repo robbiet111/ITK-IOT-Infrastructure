@@ -4,6 +4,7 @@ Contributors: None
 Project: Common headers for TTOGO ESP32 GLADD IoT 
 ***/
 
+#include <Arduino.h>
 // Wifi
 #include <WiFiMulti.h>
 // InfluxDB2.0
