@@ -8,7 +8,6 @@
 #include <EEPROM.h>
 #include "common_namespace.h"
 #include "cli_namespace.h"
-// #include "ota_namespace.h"
 #include "elegant_ota_namespace.h"
 #include "experiment_namespace.h"
 using namespace common;

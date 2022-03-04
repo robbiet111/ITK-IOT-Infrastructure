@@ -7,14 +7,12 @@ Project: Common headers for TTOGO ESP32 GLADD IoT
 #include <Arduino.h>
 // Wifi
 #include <WiFiMulti.h>
-// InfluxDB2.0
-// #include <InfluxDbClient.h>
-// #include <InfluxDbCloud.h>
 // Periphery
 #include <TFT_eSPI.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <Button2.h>
+#include <WebServer.h>
 
 //#include <WiFi.h>
 
@@ -33,8 +31,3 @@ Project: Common headers for TTOGO ESP32 GLADD IoT
 #define TFT_BL              4   // Display backlight control pin
 #define BUTTON_1            35
 #define BUTTON_2            0
-
-// OTA
-#include <WebServer.h>
-#include <ESPmDNS.h>
-#include <Update.h>
