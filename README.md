@@ -36,13 +36,15 @@ Once the project can build, one can flash the firmware of the board with it by p
 The project implements 3 states:
 Measure (M)  - Update (U) - CLI (C)
 
-*Measure*
+**Measure**
+
 This state runs the measurement defined in the experiment namespace.
 It is the default state and is run automatically when the firmware starts.
 It starts by connecting to WiFi. If this fails, it automatically enters the CLI.
 If the board successfully connects to WiFi, the board starts executing the experiment::measure function, which should print data to serial.
 
-*Update*
+**Update**
+
 This state enables Over-the-air updates of firmware. When the setup finishes, it should print something like the following to serial:
 ``` bash
 SPIFFS mounted successfully
@@ -58,7 +60,8 @@ Note: There is no confirmation. The firmware just updates to the new file.
 
 The device restarts after updating and starts the new firmware.
 
-*CLI*
+**CLI**
+
 The CLI enables the user to execute the following commands from serial:
 - `info` - Lists status about WiFi, password and url
 - `ssid <value>` - Changes WiFi SSID to `<value>`
