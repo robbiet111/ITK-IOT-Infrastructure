@@ -5,7 +5,7 @@ The aim of the project is to simplify testing of sensors built at the University
 ## CLI - Command-line interface
 This feature provides a text-based user interface through microcontroller's serial port. This is implementing a [SimpleCLI](https://github.com/SpacehuhnTech/SimpleCLI) library.
 
-To see the various functions already implemented, see [Getting started](../README.md).
+To see the various functions already implemented, see [Getting started](../README.md#how-to-interact-with-the-board).
 
 ### How to add a new function
 
