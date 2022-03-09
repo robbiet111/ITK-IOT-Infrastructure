@@ -36,6 +36,7 @@ Command ssid;
 Command pass;
 Command info;
 Command run;
+Command otau;
 
 // Variables stored in ROM
 String influxdb_url; // Database IP address
@@ -76,8 +77,6 @@ enum running_mode {measure=0, enter_cli=1, update=2};
 running_mode current_mode = measure;
 bool refreshScreen = true;
 
-InfluxDBClient client;
-Point sensor("data");
 WiFiMulti WiFiMulti;
 TFT_eSPI tft = TFT_eSPI(135, 240); // Invoke custom library
 Button2 btn1(BUTTON_1);
@@ -97,6 +96,8 @@ byte rcvData;
 void writeStringToEEPROM(int address, const String &data);
 String readStringFromEEPROM(int addrOffset);
 void sensor_setup();
+void ota_setup();
+void clear_display(int font_size);
 
 void writeStringToEEPROM(int address, const String &data)
 {
@@ -186,12 +187,18 @@ void infoCallback(cmd* c) {
 
 void runCallback(cmd* c) {
     Command cmd(c); // Create wrapper object
-    if (enterCli) {
-      enterCli = false;
-      sensor_setup();
-    }
+
+    current_mode = measure;
+    sensor_setup();
     btnClick = true;
-    Serial.println("\nRunning...");
+}
+
+void otauCallback(cmd* c) {
+    Command cmd(c); // Create wrapper object
+
+    current_mode = update;
+    ota_setup();
+    btnClick = true;
 }
 
 // Callback in case of an error
@@ -211,15 +218,12 @@ void errorCallback(cmd_error* e) {
 void checkCLI() {
   if (refreshScreen) {
     Serial.println("Entering CLI");
-    tft.setTextSize(2);
-    tft.fillScreen(TFT_BLACK);
-    tft.setTextDatum(MC_DATUM);
+    clear_display(2);
     tft.drawString("> CLI", tft.width() / 2, tft.height() / 2);
     refreshScreen = false;
   }
   // Check if user typed something into the serial monitor
   if (Serial.available()) {
-      //Serial.print("Database ip is: " + influxdb_url+"\n");
       // Read out string from the serial monitor
       String input = Serial.readStringUntil('\n');
 
@@ -257,6 +261,12 @@ const char* host = "esp32";
 WebServer server(80);
 
 void ota_setup() {
+  if (refreshScreen) {
+    Serial.println("Starting OTA");
+    clear_display(2);
+    tft.drawString("< OTA >", tft.width() / 2, tft.height() / 2);
+    refreshScreen = false;
+  }
 // Wait for connection
   while (WiFiMulti.run() != WL_CONNECTED) {
     delay(500);
@@ -292,7 +302,7 @@ void ota_setup() {
     ESP.restart();
   }, []() {
     HTTPUpload& upload = server.upload();
-    Serial.print("Uploading firmware...");
+    Serial.print("Uploading firmware...\n");
     if (upload.status == UPLOAD_FILE_START) {
       Serial.printf("Update: %s\n", upload.filename.c_str());
       if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { //start with max available size
@@ -334,13 +344,9 @@ void MeasureDataMAX31865PT100() {
 		timeStamp = millis();
 
     uint16_t rtd = max_ada.readRTD();
-    //Serial.print("RTD value: "); Serial.println(rtd);
     float ratio = rtd;
     ratio /= 32768;
-    //Serial.print("Ratio = "); Serial.println(ratio,8);
-    //Serial.print("Resistance = "); Serial.println(RREF*ratio,8);
     float myTemp = (RREF*ratio / 1250);
-    //Serial.print("Temperature = ");
     float temperature = 0.0;
     temperature = max_ada.temperature(RNOMINAL, RREF);
     
@@ -369,27 +375,11 @@ void MeasureDataMAX31865PT100() {
       max_ada.clearFault();
     }
 		else {
-			Serial.print("Temperature: "); Serial.print(temperature); Serial.println("°C");
-			sensor.clearFields();
-			sensor.addField(FIELD_NAME_T, float(temperature));
+			Serial.print("data: "); Serial.print(temperature); Serial.println(" °C");
 
-			tft.setTextSize(2);
-			tft.fillScreen(TFT_BLACK);
-			tft.setTextDatum(MC_DATUM);
+      clear_display(2);
 			tft.drawString(String("T: ") + String(temperature) + " *C", tft.width() / 2, tft.height() / 2);
 
-			db_counter++;
-			if (db_counter == 60) {
-				if (!client.writePoint(sensor)) {
-				  Serial.print("InfluxDB write failed: ");
-				  Serial.println(client.getLastErrorMessage());
-				  //Serial.println("Calling ESP hard reset...");
-				  //ESP.restart();
-				} else {
-				  Serial.println("InfluxDB write OK");
-				}
-				db_counter = 0;
-			}
 		}		
 	}	  
 }
@@ -405,12 +395,21 @@ void MeasureDataMAX31865PT100() {
  * Setup Part
  * 
  */
+void clear_display(int font_size) {
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextSize(font_size);
+  tft.setTextDatum(MC_DATUM);
+}
+
+void put_on_display(String text, int pos) {
+  tft.drawString(text, tft.width() / 2, tft.height() / 2 + pos);
+}
+
 void button_init() {
   btn1.setClickHandler([](Button2 & b) {
-    Serial.println("DEBUG :: Btn GPIO_35 setClickHandler");
-    Serial.println("Lowering value of current mode");
     if (current_mode ==  measure) {
       current_mode = update;
+      refreshScreen = true;
       ota_setup();
     } else if (current_mode == enter_cli){
       current_mode = measure;
@@ -423,8 +422,6 @@ void button_init() {
   });
 
   btn2.setClickHandler([](Button2 & b) {
-    Serial.println("DEBUG :: Btn GPIO_35 setClickHandler");
-    Serial.println("Increasing value of current mode");
     if (current_mode ==  update) {
       current_mode = measure;
       sensor_setup();
@@ -433,6 +430,7 @@ void button_init() {
       refreshScreen = true;
     } else if (current_mode == enter_cli) {
       current_mode = update;
+      refreshScreen = true;
       ota_setup();
     }
     btnClick = true;
@@ -440,7 +438,6 @@ void button_init() {
 }
 
 void sensor_setup() {
-  InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
   Serial.println(wifi_ssid+" "+wifi_pass);
   WiFiMulti.addAP(wifi_ssid.c_str(), wifi_pass.c_str());
   delay(200);
@@ -448,34 +445,24 @@ void sensor_setup() {
   Serial.print("Connecting to WiFi: ");
   Serial.println(wifi_ssid);
 
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextSize(2);
-  tft.setTextDatum(MC_DATUM);
+
+  clear_display(2);
   tft.drawString("Connecting to WiFi", tft.width() / 2, tft.height() / 2 - 16);
   tft.drawString(String(wifi_ssid), tft.width() / 2, tft.height() / 2 + 16);
 
   int counter = 0;
 
   while (WiFiMulti.run() != WL_CONNECTED) {
-    // Serial.print(".");
     delay(100);
     counter += 1;
     if (counter == 5) {
       Serial.println("Entering CLI");
       current_mode = enter_cli;
-      tft.fillScreen(TFT_BLACK);
-      tft.setTextSize(2);
-      tft.setTextDatum(MC_DATUM);
+      clear_display(2);
       tft.drawString("Connection failed", tft.width() / 2, tft.height() / 2-16);
       tft.drawString("Entering CLI", tft.width() / 2, tft.height() / 2+16);
       delay(2500);
       break;
-      // tft.fillScreen(TFT_BLACK);
-      // tft.setTextSize(2);
-      // tft.setTextDatum(MC_DATUM);
-      // tft.drawString("Rebooting TTGO ESP32", tft.width() / 2, tft.height() / 2);
-      // delay(1000);
-      // ESP.restart();
     }
   }
   if (current_mode == measure) {
@@ -485,56 +472,13 @@ void sensor_setup() {
     Serial.print("IP address: ");     Serial.println(WiFi.localIP()); char buf[16]; sprintf(buf, "%d.%d.%d.%d", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3] );
     Serial.print("MAC address: ");    Serial.println(WiFi.macAddress());
 
-    tft.fillScreen(TFT_BLACK);
-    tft.setTextSize(1);
-    tft.setTextDatum(MC_DATUM);
+    clear_display(1);
     tft.drawString("WiFi connected: " + String(WiFi.SSID()), tft.width() / 2, tft.height() / 2 - 24);
     tft.drawString("Hostname: " + String(WiFi.getHostname()), tft.width() / 2, tft.height() / 2 - 8);
     tft.drawString("IP address: " + String(buf), tft.width() / 2, tft.height() / 2 + 8);
     tft.drawString("MAC address: " + String(WiFi.macAddress()), tft.width() / 2, tft.height() / 2 + 24);
     delay(5000);
     tft.fillScreen(TFT_BLACK);
-
-    // Check server connection
-    // if (client.validateConnection()) {
-    //   Serial.print("Connected to InfluxDB ");
-    //   Serial.println(client.getServerUrl());
-    //   Serial.println("All connections successful. Exiting setup.");
-    //   Serial.println("======= InfluxDB tags =======");
-    //   Serial.print(TAG_UNIT_ID_NAME);    Serial.print(": "); Serial.println(TAG_UNIT_ID_VALUE);
-    //   Serial.print(TAG_INSTRUMENT_NAME); Serial.print(": "); Serial.println(TAG_INSTRUMENT_VALUE);
-    //   Serial.print(TAG_LOCATION_NAME);   Serial.print(": "); Serial.println(TAG_LOCATION_VALUE);
-    //   Serial.print(TAG_SENSOR_NAME);     Serial.print(": "); Serial.println(TAG_SENSOR_VALUE);
-    //   Serial.print(TAG_CHANNEL_NAME);    Serial.print(": "); Serial.println(TAG_CHANNEL_VALUE);
-
-    //   sensor.addTag(TAG_UNIT_ID_NAME,    TAG_UNIT_ID_VALUE);
-    //   sensor.addTag(TAG_INSTRUMENT_NAME, TAG_INSTRUMENT_VALUE);
-    //   sensor.addTag(TAG_LOCATION_NAME,   TAG_LOCATION_VALUE);
-    //   sensor.addTag(TAG_SENSOR_NAME,     TAG_SENSOR_VALUE);
-    //   sensor.addTag(TAG_CHANNEL_NAME,    TAG_CHANNEL_VALUE);
-    //   Serial.println("=============================");
-
-    //   tft.fillScreen(TFT_BLACK);
-    //   tft.setTextSize(1);
-    //   tft.setTextDatum(MC_DATUM);
-    //   tft.drawString("InfluxDB: " + String(client.getServerUrl()), tft.width() / 2, tft.height() / 2 - 40);
-    //   tft.drawString(String(TAG_UNIT_ID_NAME) + ": " + String(TAG_UNIT_ID_VALUE), tft.width() / 2, tft.height() / 2 - 24);
-    //   tft.drawString(String(TAG_INSTRUMENT_NAME) + ": " + String(TAG_INSTRUMENT_VALUE), tft.width() / 2, tft.height() / 2 - 8);
-    //   tft.drawString(String(TAG_LOCATION_NAME) + ": " + String(TAG_LOCATION_VALUE), tft.width() / 2, tft.height() / 2 + 8);
-    //   tft.drawString(String(TAG_SENSOR_NAME) + ": " + String(TAG_SENSOR_VALUE), tft.width() / 2, tft.height() / 2 + 24);
-    //   tft.drawString(String(TAG_CHANNEL_NAME) + ": " + String(TAG_CHANNEL_VALUE), tft.width() / 2, tft.height() / 2 + 40);
-    //   delay(10000);
-    //   tft.fillScreen(TFT_BLACK);
-    // } else {
-    //   Serial.print("InfluxDB connection failed: ");
-    //   Serial.println(client.getLastErrorMessage());
-    //   //digitalWrite(LED_BUILTIN, LOW); // Turn the LED on by making the voltage HIGH
-    // }
-
-  //  pinMode(2, OUTPUT);
-  // pinMode(13, OUTPUT);
-  // pinMode(15, INPUT);
-  // pinMode(12, OUTPUT);
   }
 }
 
@@ -557,6 +501,7 @@ void setup() {
   pass = cli.addSingleArgCmd("pass", passCallback);
   info = cli.addCmd("info", infoCallback);
   run = cli.addCmd("run", runCallback);
+  otau = cli.addCmd("otau", otauCallback);
   
   // Sensor setup
   max_ada.begin(MAX31865_2WIRE);  // set to 2WIRE or 4WIRE as necessary 
@@ -571,21 +516,23 @@ void setup() {
   tft.setCursor(0, 0);
   tft.setTextDatum(MC_DATUM);
   tft.setTextSize(1);
+  
+    tft.setSwapBytes(true);
 
   if (TFT_BL > 0) {                           // TFT_BL has been set in the TFT_eSPI library in the User Setup file TTGO_T_Display.h
     pinMode(TFT_BL, OUTPUT);                // Set backlight pin to output mode
     digitalWrite(TFT_BL, TFT_BACKLIGHT_ON); // Turn backlight on. TFT_BACKLIGHT_ON has been set in the TFT_eSPI library in the User Setup file TTGO_T_Display.h
   }
 
-  tft.setSwapBytes(true);
-  // tft.pushImage(0, 0,  240, 135, UoG_DM_240x135);
-  tft.pushImage(0, 0,  240, 135, team_logo);
-  delay(5000);
+  tft.setRotation(0);
+  tft.fillScreen(TFT_RED);
+  delay(2000);
+  tft.fillScreen(TFT_BLUE);
+  delay(2000);
+  tft.fillScreen(TFT_GREEN);
+  delay(2000);
 
-  // tft.setRotation(3);
-  // tft.fillScreen(TFT_RED); delay(1000);
-  // tft.fillScreen(TFT_BLUE); delay(1000);
-  // tft.fillScreen(TFT_GREEN); delay(1000);
+  tft.setRotation(1);
 
   button_init();
   

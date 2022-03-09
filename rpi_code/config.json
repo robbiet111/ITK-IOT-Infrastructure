@@ -1,0 +1,10 @@
+{
+    "share_point":
+    {
+        "user": "robbietippen@workflowtracker.onmicrosoft.com",
+        "password": "Wftp8189!",
+        "url": "https://workflowtracker.sharepoint.com/",
+        "site": "https://workflowtracker.sharepoint.com/sites/PhysicsDepartment",
+        "doc_library": "Shared Documents"
+    }
+}
