@@ -72,7 +72,8 @@ Adafruit_MAX31865 max_ada = Adafruit_MAX31865(33, 25, 26, 27);
 
 #define FIELD_NAME_T          "temperature"
 
-bool enterCli = false;
+enum running_mode {measure=0, enter_cli=1, update=2};
+running_mode current_mode = measure;
 bool refreshScreen = true;
 
 InfluxDBClient client;
@@ -206,6 +207,7 @@ void errorCallback(cmd_error* e) {
 
 void checkCLI() {
   if (refreshScreen) {
+    Serial.println("Entering CLI");
     tft.setTextSize(2);
     tft.fillScreen(TFT_BLACK);
     tft.setTextDatum(MC_DATUM);
@@ -239,6 +241,82 @@ void checkCLI() {
 /**
  * 
  * End of CLI Part
+ * 
+ */
+
+
+/**
+ * 
+ * OTA Part
+ * 
+ */
+const char* host = "esp32";
+WebServer server(80);
+
+void ota_setup() {
+// Wait for connection
+  while (WiFiMulti.run() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  /*use mdns for host name resolution*/
+  if (!MDNS.begin(host)) { //http://esp32.local
+    Serial.println("Error setting up MDNS responder!");
+    while (1) {
+      delay(1000);
+    }
+  }
+  Serial.println("mDNS responder started");
+  /*return index page which is stored in serverIndex */
+  server.on("/", HTTP_GET, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/html", loginIndex);
+  });
+  server.on("/serverIndex", HTTP_GET, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/html", serverIndex);
+  });
+  /*handling uploading firmware file */
+  server.on("/update", HTTP_POST, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+    ESP.restart();
+  }, []() {
+    HTTPUpload& upload = server.upload();
+    Serial.print("Uploading firmware...");
+    if (upload.status == UPLOAD_FILE_START) {
+      Serial.printf("Update: %s\n", upload.filename.c_str());
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { //start with max available size
+        Update.printError(Serial);
+      }
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      /* flashing firmware to ESP*/
+      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+        Update.printError(Serial);
+      }
+    } else if (upload.status == UPLOAD_FILE_END) {
+      if (Update.end(true)) { //true to set the size to the current progress
+        Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+        Serial.print("Successfully uploaded!");
+      } else {
+        Update.printError(Serial);
+        Serial.print("Failed uploading.");
+      }
+    }
+  });
+  Serial.println("Starting server");
+  server.begin();
+
+}
+/**
+ *  
+ * End of OTA Part
  * 
  */
 
@@ -315,77 +393,45 @@ void MeasureDataMAX31865PT100() {
 
 /**
  * 
+ * End of Experiment Part
+ * 
+ */
+
+/**
+ * 
  * Setup Part
  * 
  */
 void button_init() {
-  btn1.setLongClickHandler([](Button2 & b) {
-    //Serial.println("Btn GPIO_35 setLongClickHandler");
-    if (enterCli) {
-      enterCli = false;
-      sensor_setup();
-      // ESP.restart();
-    }
-    btnClick = true;
-    unsigned int time = b.wasPressedFor();
-    Serial.print("You clicked ");
-    if (time > 1500) {
-      Serial.print("a really really long time.");
-    } else if (time > 1000) {
-      Serial.print("a really long time.");
-    } else if (time > 500) {
-      Serial.print("a long time.");
-    } else {
-      Serial.print("long.");
-    }
-    Serial.print(" (");
-    Serial.print(time);
-    Serial.println(" ms)");
-  });
-
   btn1.setClickHandler([](Button2 & b) {
     Serial.println("DEBUG :: Btn GPIO_35 setClickHandler");
-    if (enterCli) {
-      enterCli = false;
+    Serial.println("Lowering value of current mode");
+    if (current_mode ==  measure) {
+      current_mode = update;
+      ota_setup();
+    } else if (current_mode == enter_cli){
+      current_mode = measure;
       sensor_setup();
-      // ESP.restart();
-    }
-    btnClick = true;
-  });
-
-  btn1.setDoubleClickHandler([](Button2 & b) {
-    Serial.println("DEBUG :: Btn GPIO_35 setDoubleClickHandler");
-    if (enterCli) {
-      enterCli = false;
-      sensor_setup();
-      // ESP.restart();
-    }
-    btnClick = true;
-  });
-
-  btn1.setTripleClickHandler([](Button2 & b) {
-    Serial.println("DEBUG :: Btn GPIO_35 setTripleClickHandler");
-    if (enterCli) {
-      enterCli = false;
-      sensor_setup();
-      // ESP.restart();
-    }
-    btnClick = true;
-  });
-
-  btn2.setLongClickHandler([](Button2 & b) {
-    Serial.println("DEBUG :: Btn GPIO_0 setPressedHandler");
-    if (enterCli) {
-      enterCli = false;
-      sensor_setup();
-      // ESP.restart();
+    } else if (current_mode == update) {
+      current_mode = enter_cli;
+      refreshScreen = true;
     }
     btnClick = true;
   });
 
   btn2.setClickHandler([](Button2 & b) {
-    enterCli = true;
-    Serial.println("Enter CLI interface");
+    Serial.println("DEBUG :: Btn GPIO_35 setClickHandler");
+    Serial.println("Increasing value of current mode");
+    if (current_mode ==  update) {
+      current_mode = measure;
+      sensor_setup();
+    } else if (current_mode == measure){
+      current_mode = enter_cli;
+      refreshScreen = true;
+    } else if (current_mode == enter_cli) {
+      current_mode = update;
+      ota_setup();
+    }
     btnClick = true;
   });
 }
@@ -413,7 +459,7 @@ void sensor_setup() {
     counter += 1;
     if (counter == 5) {
       Serial.println("Entering CLI");
-      enterCli = true;
+      current_mode = enter_cli;
       tft.fillScreen(TFT_BLACK);
       tft.setTextSize(2);
       tft.setTextDatum(MC_DATUM);
@@ -429,7 +475,7 @@ void sensor_setup() {
       // ESP.restart();
     }
   }
-  if (!enterCli) {
+  if (current_mode == measure) {
     WiFi.setHostname(ESP32_HOST_NAME);
     Serial.print("WiFi connected: "); Serial.println(WiFi.SSID());
     Serial.print("Hostname: ");       Serial.println(WiFi.getHostname());
@@ -487,7 +533,6 @@ void sensor_setup() {
   // pinMode(15, INPUT);
   // pinMode(12, OUTPUT);
   }
-  refreshScreen = true;
 }
 
 void setup() {
@@ -516,7 +561,7 @@ void setup() {
   rcvData = 255;
 
   tft.init();
-  tft.setRotation(3);
+  tft.setRotation(0);
   tft.fillScreen(TFT_BLACK);
   tft.setTextSize(2);
   tft.setTextColor(TFT_GREEN);
@@ -548,10 +593,14 @@ void setup() {
 
 void loop() {
   if (btnClick) {
-    if (enterCli) {
+    if (current_mode == enter_cli) {
       checkCLI();
-    } else {
+    } else if (current_mode == measure) {
       MeasureDataMAX31865PT100();
+    } else if (current_mode == update) {
+      server.handleClient();
+    } else {
+      Serial.println("ELSE");
     }
   }
   btn1.loop();
