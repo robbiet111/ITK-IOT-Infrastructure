@@ -11,12 +11,8 @@ namespace common {
     WiFiMulti wifimulti;
     WebServer server(80);
     void sensor_setup() {
-        Serial.println(wifi_ssid+" "+wifi_pass);
         common::wifimulti.addAP(wifi_ssid.c_str(), wifi_pass.c_str());
         delay(200);
-        Serial.println("");
-        Serial.print("Connecting to WiFi: ");
-        Serial.println(wifi_ssid);
 
 
         common::clear_display(2);
@@ -25,7 +21,11 @@ namespace common {
 
         int counter = 0;
 
+        Serial.print("Connecting to WiFi: ");
+        Serial.print(String(wifi_ssid));
+        Serial.print(" ..");    
         while (common::wifimulti.run() != WL_CONNECTED) {
+            Serial.print(".");
             delay(100);
             counter += 1;
             if (counter == 5) {
@@ -39,6 +39,7 @@ namespace common {
             }
         }
         if (current_mode == measure) {
+            Serial.println();
             WiFi.setHostname(ESP32_HOST_NAME);
             Serial.print("WiFi connected: "); Serial.println(WiFi.SSID());
             Serial.print("Hostname: ");       Serial.println(WiFi.getHostname());
