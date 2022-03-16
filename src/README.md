@@ -216,6 +216,39 @@ namespace example {
 #endif
 ```
 
-
-
 ##### Functions defined in the `C++` source file
+
+Functions can be also defined in the `C++` file corresponding to the namespace header. This is the recommended option for any function that is longer than just few commands and for any I/O bound functions.
+
+One needs to declare the signature of the function in the namespace header and then define the function in the source file.
+
+**Example:**
+
+To declare function `examine()` in the `example` namespace, we use the following in `include/example_namespace.h`:
+
+```cpp
+#ifndef EXAMPLE_NAMESPACE_H
+#define EXAMPLE_NAMESPACE_H
+
+namespace example {
+    void examine();
+}
+
+#endif
+```
+
+and the following in the corresponding `C++` file. In this case this should be `example.cpp`:
+
+```cpp
+#include "example_namespace.h"
+
+namespace example {
+    void examine() {
+        // longer
+        // body
+        // of
+        // a
+        // function
+    }
+}
+```
