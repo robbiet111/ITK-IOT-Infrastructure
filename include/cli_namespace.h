@@ -149,6 +149,8 @@ namespace CLI {
         }
     }
 
+    void begin();
+
     void checkCLI();
 }
 #endif

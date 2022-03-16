@@ -48,7 +48,7 @@ namespace elegant_OTA {
             Serial.print('.');
             delay(1000);
         }
-        Serial.print("Connected to ");
+        Serial.print(" Connected to ");
         Serial.println(wifi_ssid);
         Serial.println("You can update the firmware at:\n(Use Ctrl+click to open the url in a browser.)");
         Serial.print("http://");
