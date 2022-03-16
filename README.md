@@ -22,11 +22,11 @@ Connect your TTGO board to one of the USB ports on your device.
 Press the PlatformIO Build button (or press Ctrl+Alt+B).
 
 The project should build without any error. If an error saying
-``` bash
+```bash
 src/main.cpp:134:26: error: 'TFT_BACKLIGHT_ON' was not declared in this scope
 ```
 occurs, copy the file `User_Setup_Select.h` from the main directory to the location specified below:
-``` bash
+```bash
 .pio/libdeps/esp32dev/TFT_eSPI/User_Setup_Select.h
 ```
 
@@ -36,17 +36,17 @@ Once the project can build, one can flash the firmware of the board with it by p
 The project implements 3 states:
 Measure (M)  - Update (U) - CLI (C)
 
-**Measure**
+#### Measure
 
 This state runs the measurement defined in the experiment namespace.
 It is the default state and is run automatically when the firmware starts.
 It starts by connecting to WiFi. If this fails, it automatically enters the CLI.
 If the board successfully connects to WiFi, the board starts executing the experiment::measure function, which should print data to serial.
 
-**Update**
+#### Update
 
 This state enables Over-the-air updates of firmware. When the setup finishes, it should print something like the following to serial:
-``` bash
+```bash
 SPIFFS mounted successfully
 Connecting to WiFi ..Connected to PPE_IoT
 You can update the firmware at:
@@ -60,7 +60,7 @@ Note: There is no confirmation. The firmware just updates to the new file.
 
 The device restarts after updating and starts the new firmware.
 
-**CLI**
+#### CLI
 
 The CLI enables the user to execute the following commands from serial:
 - `info` - Lists status about WiFi, password and url
@@ -70,12 +70,13 @@ The CLI enables the user to execute the following commands from serial:
 - `otau` - Enters the Update state
 
 The TTGO board has two buttons under the display.
-If one looks at the board with the TTGO sign, the button on top switches states in the order:
+If one looks at the board with the TTGO sign on left, the button on top switches states in the order:
 ```
 M->U->C
 ```
 and from `C` it goes back to `M`.
-The buttom at the bottom switches states in reverse order:
+
+The button at the bottom switches states in reverse order:
 ```
 M<-U<-C
 ```
