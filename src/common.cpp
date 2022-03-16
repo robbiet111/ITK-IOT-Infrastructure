@@ -22,10 +22,8 @@ namespace common {
         int counter = 0;
 
         Serial.print("Connecting to WiFi: ");
-        Serial.print(String(wifi_ssid));
-        Serial.print(" ..");    
+        Serial.println(String(wifi_ssid));
         while (common::wifimulti.run() != WL_CONNECTED) {
-            Serial.print(".");
             delay(100);
             counter += 1;
             if (counter == 5) {
@@ -38,8 +36,8 @@ namespace common {
             break;
             }
         }
+        Serial.println();
         if (current_mode == measure) {
-            Serial.println();
             WiFi.setHostname(ESP32_HOST_NAME);
             Serial.print("WiFi connected: "); Serial.println(WiFi.SSID());
             Serial.print("Hostname: ");       Serial.println(WiFi.getHostname());
