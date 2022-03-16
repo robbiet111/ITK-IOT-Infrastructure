@@ -21,13 +21,12 @@ namespace common {
 
         int counter = 0;
 
-        Serial.print("Connecting to WiFi: ");
+        Serial.println("Connecting to WiFi: ");
         Serial.println(String(wifi_ssid));
         while (common::wifimulti.run() != WL_CONNECTED) {
             delay(100);
             counter += 1;
             if (counter == 5) {
-            Serial.println("Entering CLI");
             current_mode = enter_cli;
             common::clear_display(2);
             tft.drawString("Connection failed", tft.width() / 2, tft.height() / 2-16);
