@@ -129,6 +129,7 @@ namespace CLI {
         Command cmd(c); // Create wrapper object
 
         current_mode = measure;
+        Serial.println();
         sensor_setup();
         btnClick = true;
     }
@@ -148,6 +149,8 @@ namespace CLI {
             Serial.println("\"?");
         }
     }
+
+    void begin();
 
     void checkCLI();
 }

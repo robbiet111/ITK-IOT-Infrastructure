@@ -97,22 +97,8 @@ void setup() {
 
   EEPROM.begin(EEPROM_SIZE);
 
-  // Initialise EEPROM and read from it
-  influxdb_url = CLI::readStringFromEEPROM(INFLUXDB_URL_ADDR);
-  wifi_ssid = CLI::readStringFromEEPROM(WIFI_SSID_ADDR);
-  wifi_pass = CLI::readStringFromEEPROM(WIFI_PASS_ADDR);
+  CLI::begin();
 
-  // Simple CLI
-  CLI::cli.setOnError(CLI::errorCallback); // Set error Callback
-
-  // Create the command with callback function which updates influxdb_url
-  CLI::dbip = CLI::cli.addSingleArgCmd("dbip", CLI::dbipCallback);
-  CLI::ssid = CLI::cli.addSingleArgCmd("ssid", CLI::ssidCallback);
-  CLI::pass = CLI::cli.addSingleArgCmd("pass", CLI::passCallback);
-  CLI::info = CLI::cli.addCmd("info", CLI::infoCallback);
-  CLI::run = CLI::cli.addCmd("run", CLI::runCallback);
-  CLI::otau = CLI::cli.addCmd("otau", CLI::otauCallback);
-  
   // Sensor setup
   experiment::begin();
 

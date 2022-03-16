@@ -18,6 +18,24 @@ namespace CLI {
         btnClick = true;
     }
 
+    void begin() {
+        // Initialise EEPROM and read from it
+        common::influxdb_url = readStringFromEEPROM(INFLUXDB_URL_ADDR);
+        common::wifi_ssid = readStringFromEEPROM(WIFI_SSID_ADDR);
+        common::wifi_pass = readStringFromEEPROM(WIFI_PASS_ADDR);
+
+        // Simple CLI
+        cli.setOnError(errorCallback); // Set error Callback
+
+        // Create the commands with callback functions
+        dbip = cli.addSingleArgCmd("dbip", dbipCallback);
+        ssid = cli.addSingleArgCmd("ssid", ssidCallback);
+        pass = cli.addSingleArgCmd("pass", passCallback);
+        info = cli.addCmd("info", infoCallback);
+        run = cli.addCmd("run", runCallback);
+        otau = cli.addCmd("otau", otauCallback);
+    }
+
     void checkCLI() {
         if (refreshScreen) {
             Serial.println("Entering CLI");
