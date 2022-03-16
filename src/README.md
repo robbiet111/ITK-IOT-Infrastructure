@@ -24,7 +24,7 @@ The CLI feature has its own dedicated namespace. To get to know how namespaces w
 
 Each CLI function needs to define a command with `Command <name_of_command>`. This should be done in the `CLI` namespace. Define it as extern in the header file and then declare it again in the C++ file `src/cli.cpp`. This source file also implements the `CLI::begin` function, where the command is actually initialised. Use the [SimpleCLI documentation](https://github.com/SpacehuhnTech/SimpleCLI#adding-commands) to add the command. To add a callback function to a command (function which is called when the command is executed), define it in the namespace and just pass it as an argument to the command when initialising it.
 
-Example:
+**Example:**
 
 We want to implement a function which prints `Hello, <name>!` to serial.
 
