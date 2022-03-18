@@ -9,6 +9,7 @@ To implement a different sensor, use [template branch](https://stgit.dcs.gla.ac.
 ### Contributors
 - [Jakub Jelinek](https://stgit.dcs.gla.ac.uk/2478625j), 2478625J
 - [Yousuf Abdullatif](https://stgit.dcs.gla.ac.uk/2482572a), 2482572A
+- [Robbie Tippen](https://stgit.dcs.gla.ac.uk/2403237t), 2403237T
 
 ### Main customer
 - Dima Maneuski
