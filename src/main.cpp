@@ -543,8 +543,8 @@ void setup() {
   influxdb_url = readStringFromEEPROM(INFLUXDB_URL_ADDR);
   wifi_ssid = readStringFromEEPROM(WIFI_SSID_ADDR);
   wifi_pass = readStringFromEEPROM(WIFI_PASS_ADDR);
-  wifi_ssid = "Kuba";
-  wifi_pass="jirikara";
+  wifi_ssid = "<WiFi_SSID>";
+  wifi_pass="<WiFi_Password>";
   delay(3000);
   Serial.println(wifi_ssid+" "+wifi_pass);
 
