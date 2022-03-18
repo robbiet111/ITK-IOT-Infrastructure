@@ -1,4 +1,18 @@
 #!/usr/bin/env python3
+
+#   Authors:
+#     - Dima Maneuski
+#     - Jakub Jelinek - 2478625J@student.gla.ac.uk / jakubjjelinek@gmail.com
+#     - Robbie Tippen
+#   Project: ITk IoT Infrastructure - Aims to develop a platform supporting a CLI and OTA updates on the TTGO Esp32 board.
+# 
+#   Change log:
+#   Version: 1.0.0 [18/03/2022]
+#   First full release.
+#
+#   This code is licensed under MIT license (see LICENSE for details)
+#
+
 import serial
 from datetime import datetime
 import time

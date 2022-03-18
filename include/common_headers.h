@@ -1,7 +1,14 @@
 /***
-Author: Dima Maneuski
-Contributors: None
-Project: Common headers for TTOGO ESP32 GLADD IoT 
+  Authors:
+    - Dima Maneuski
+    - Jakub Jelinek - 2478625J@student.gla.ac.uk / jakubjjelinek@gmail.com
+  Project: ITk IoT Infrastructure - Aims to develop a platform supporting a CLI and OTA updates on the TTGO Esp32 board.
+
+  Change log:
+  Version: 1.0.0 [18/03/2022]
+  First full release.
+
+  This code is licensed under MIT license (see LICENSE for details)
 ***/
 
 #include <Arduino.h>

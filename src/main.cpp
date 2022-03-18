@@ -1,7 +1,15 @@
-/*
- * Authors: Dima Maneuski, Jakub Jelinek
- * Project: ITk IoT Infrastructure
-*/
+/***
+  Authors:
+    - Dima Maneuski
+    - Jakub Jelinek - 2478625J@student.gla.ac.uk / jakubjjelinek@gmail.com
+  Project: ITk IoT Infrastructure - Aims to develop a platform supporting a CLI and OTA updates on the TTGO Esp32 board.
+
+  Change log:
+  Version: 1.0.0 [18/03/2022]
+  First full release.
+
+  This code is licensed under MIT license (see LICENSE for details)
+***/
 
 #include <SimpleCLI.h> // for instructions of use see https://github.com/spacehuhn/SimpleCLI
 #include <stdio.h>
@@ -12,17 +20,6 @@
 #include "experiment_namespace.h"
 using namespace common;
 
-// Setting up Adafruit MAX31865 module 
-// #include <Adafruit_MAX31865.h>
-// Use software SPI: Adafruit_MAX31865(CS, DI, DO, CLK)
-// NodeMCU pins connected to: Adafruit_MAX31865(D0=GPIO16, D1=GPIO5, D2=GPIO4, D3=GPIO0)
-// Adafruit_MAX31865 max_ada = Adafruit_MAX31865(33, 25, 26, 27);
-// // The value of the Rref resistor. Use 430.0 for PT100 and 4300.0 for PT1000
-// #define RREF 430.0
-// // The 'nominal' 0-degrees-C resistance of the sensor
-// // 100.0 for PT100, 1000.0 for PT1000
-
-// #define RNOMINAL 100.0
 
 #define TAG_UNIT_ID_NAME      "unit_id"
 #define TAG_UNIT_ID_VALUE     "11"
@@ -115,9 +112,9 @@ void setup() {
   
   tft.setSwapBytes(true);
 
-  if (TFT_BL > 0) {                           // TFT_BL has been set in the TFT_eSPI library in the User Setup file TTGO_T_Display.h
-    pinMode(TFT_BL, OUTPUT);                // Set backlight pin to output mode
-    digitalWrite(TFT_BL, TFT_BACKLIGHT_ON); // Turn backlight on. TFT_BACKLIGHT_ON has been set in the TFT_eSPI library in the User Setup file TTGO_T_Display.h
+  if (TFT_BL > 0) {
+    pinMode(TFT_BL, OUTPUT);
+    digitalWrite(TFT_BL, TFT_BACKLIGHT_ON);
   }
 
   tft.setRotation(0);

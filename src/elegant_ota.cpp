@@ -1,4 +1,16 @@
 /*
+  Authors:
+    - Dima Maneuski
+    - Jakub Jelinek - 2478625J@student.gla.ac.uk / jakubjjelinek@gmail.com
+  Project: ITk IoT Infrastructure - Aims to develop a platform supporting a CLI and OTA updates on the TTGO Esp32 board.
+
+  Change log:
+  Version: 1.0.0 [18/03/2022]
+  First full release.
+
+  This code is licensed under MIT license (see LICENSE for details)
+
+  Content of this namespace was adapted from:
   Rui Santos
   Complete project details
    - Arduino IDE: https://RandomNerdTutorials.com/esp32-ota-over-the-air-arduino/
