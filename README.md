@@ -1,5 +1,10 @@
 # ITk IoT infrastructure
 
+## About this branch
+This branch can be used as a template for deploying the project with new sensors implemented.
+
+To do this, just fill in the gaps in `src/experiment.cpp` and `include/experiment_namespace.h`.
+
 ## Organisation
 ### Contributors
 - [Jakub Jelinek](https://stgit.dcs.gla.ac.uk/2478625j), 2478625J
