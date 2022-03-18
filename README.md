@@ -1,5 +1,10 @@
 # ITk IoT infrastructure
 
+## About this branch
+This branch contains an example implementation of the project's integration with max31865 PT100.
+
+To implement a different sensor, use [template branch](https://stgit.dcs.gla.ac.uk/team-project-h/2021/cs34/itk_iot_infrastructure/-/tree/Template).
+
 ## Organisation
 ### Contributors
 - [Jakub Jelinek](https://stgit.dcs.gla.ac.uk/2478625j), 2478625J
